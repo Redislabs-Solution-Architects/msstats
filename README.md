@@ -31,16 +31,16 @@ Install necessary libraries and dependencies
 pip install -r requirements.txt
 ```
 
-Copy the example configuration file and update its contents to match your configuration:
+Copy your service account .json files in the root directiony of the project:
 
 ```
-cp config.ini.example config.ini && vim config.ini
+cp path/to/service_account.json .
 ```
 
 Execute 
 
 ```
-python msstats.py -c config.ini
+python msstats.py
 ```
 
 When finished do not forget to deactivate the virtual environment
