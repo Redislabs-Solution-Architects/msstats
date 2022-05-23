@@ -1,6 +1,6 @@
 # MSSTATS
 
-MSStats is a tool for extracting MemoryStore database metrics. The script is able to process all the Redis databases, both single instance, replicated and clustered ones that belong to a specific service account. Multiple service accounts can be defined in the configuration. 
+MSStats is a tool for extracting MemoryStore database metrics. The script is able to process all the Redis databases, both single instance and replicated (Basic or Standard) ones that belong to a specific service account. Multiple service accounts can be used at once. 
 
 The script will purely use google cloud monitoring api for getting the metrics. It will never connect to the Redis databases and it will NOT send any commands to the databases.
 
