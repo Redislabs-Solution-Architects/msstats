@@ -7,15 +7,20 @@ from google.cloud import monitoring_v3
 
 
 def process_google_service_account(service_account, outDir):
+
+    try:
+        f = open (service_account, "r")
+        data = json.loads(f.read())
+        f.close()
+        project_id = data['project_id']
+        if not project_id:
+            raise Exception("Invalid json file")
+    except:
+        return
+
     # Set the value GOOGLE_APPLICATION_CREDENTIALS variable
     os.environ.setdefault('GOOGLE_APPLICATION_CREDENTIALS', service_account)
     print("Processing Google Account with credentials: ", os.environ['GOOGLE_APPLICATION_CREDENTIALS'])
-
-    f = open (service_account, "r")
-    data = json.loads(f.read())
-    f.close()
-
-    project_id = data['project_id']
 
 
     client = monitoring_v3.MetricServiceClient()
@@ -48,6 +53,7 @@ def process_google_service_account(service_account, outDir):
     )
     for result in results:
         print(result)
+        print('yooo')
 
 
 def main():
