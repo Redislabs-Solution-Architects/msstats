@@ -31,7 +31,7 @@ Install necessary libraries and dependencies
 pip install -r requirements.txt
 ```
 
-Copy your service account .json files in the root directiony of the project:
+Copy your service account .json files in the root directory of the project:
 
 ```
 cp path/to/service_account.json .
