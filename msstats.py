@@ -587,12 +587,10 @@ def process_google_service_account(service_account, outDir):
     seconds = int(now)
     nanos = int((now - seconds) * 10 ** 9)
 
-    seconds2 = seconds - 604800
-
     interval = monitoring_v3.TimeInterval(
         {
             "end_time": {"seconds": seconds, "nanos": nanos},
-            "start_time": {"seconds": seconds2, "nanos": nanos},
+            "start_time": {"seconds": (seconds - 604800), "nanos": nanos},
         }
     )
     aggregation = monitoring_v3.Aggregation(
@@ -629,7 +627,6 @@ def process_google_service_account(service_account, outDir):
         print(result.resource.labels["region"])
 
         cmd = result.metric.labels['cmd']
-        print(cmd)
 
         if not database in metric_points:
             metric_points[database] = {}
