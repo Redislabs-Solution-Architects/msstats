@@ -3,8 +3,9 @@ import sys
 import optparse
 import time
 import json
+import openpyxl
 from google.cloud import monitoring_v3
-from google.cloud.monitoring_v3.types.common import TypedValue
+# from google.cloud.monitoring_v3.types.common import TypedValue
 
 
 def extractDatabaseName(instanceId):
@@ -52,7 +53,6 @@ def processNodeStats(processedMetricPoints):
             if value > nodeStats[key]:
                 nodeStats[key] = value
 
-    print(nodeStats)
     return nodeStats
 
 def processMetricPoint(metricPoint):
@@ -562,8 +562,7 @@ def processMetricPoint(metricPoint):
     
     return processedMetricPoint
 
-
-def process_google_service_account(service_account, outDir):
+def process_google_service_account(service_account):
 
     try:
         f = open (service_account, "r")
@@ -577,7 +576,7 @@ def process_google_service_account(service_account, outDir):
 
     # Set the value GOOGLE_APPLICATION_CREDENTIALS variable
     os.environ.setdefault('GOOGLE_APPLICATION_CREDENTIALS', service_account)
-    print("Processing Google Account with credentials: ", os.environ['GOOGLE_APPLICATION_CREDENTIALS'])
+    print("Processing Google Account with credentials found in: ", os.environ['GOOGLE_APPLICATION_CREDENTIALS'])
 
 
     client = monitoring_v3.MetricServiceClient()
@@ -601,6 +600,13 @@ def process_google_service_account(service_account, outDir):
         }
     )
 
+    metric_points = {}
+
+    # Check the following resources for more metrics
+    # https://cloud.google.com/memorystore/docs/redis/supported-monitoring-metrics
+
+
+    # Call the google cloud "redis.googleapis.com/commands/calls" to get commandstats
     results = client.list_time_series(
         request={
             "name": project_name,
@@ -611,27 +617,23 @@ def process_google_service_account(service_account, outDir):
         }
     )
 
-
-    metric_points = {}
-
-    # print(results)
-
     for result in results:
-
         database = extractDatabaseName(result.resource.labels["instance_id"])
-        print(database)
-        print(result.resource.type)        
         node_id = result.resource.labels["node_id"]
-        print(node_id)
-        print(result.metric.labels['role'])        
-        print(result.resource.labels["region"])
-
         cmd = result.metric.labels['cmd']
 
         if not database in metric_points:
             metric_points[database] = {}
         if not node_id in metric_points[database]:
-            metric_points[database][node_id] = { "points": {}}
+            metric_points[database][node_id] = { 
+                "Source": "MS",
+                "ClusterId": database,
+                "NodeId": node_id,
+                "NodeRole": "Master" if result.metric.labels['role'] == 'primary' else "Replica",
+                "NodeType": "",
+                "Region": result.resource.labels["region"],
+                "points": {}
+            }
         
         for point in result.points:
             interval = point.interval.start_time.timestamp()
@@ -655,8 +657,78 @@ def process_google_service_account(service_account, outDir):
 
     for database in metric_points:
         for node in metric_points[database]:
-            metric_points[database][node]["stats"] = processNodeStats(metric_points[database][node]["processed_points"])
+            metric_points[database][node]['commandstats'] = processNodeStats(metric_points[database][node]["processed_points"])
+            del metric_points[database][node]["points"]
+            del metric_points[database][node]["processed_points"] 
 
+    # CurrItems	
+    #Call the google cloud metrics "redis.googleapis.com/stats/memory/usage" to get "BytesUsedForCache"
+    interval = monitoring_v3.TimeInterval()
+    now = time.time()
+    seconds = int(now)
+    nanos = int((now - seconds) * 10 ** 9)
+    interval = monitoring_v3.TimeInterval(
+        {
+            "end_time": {"seconds": seconds, "nanos": nanos},
+            "start_time": {"seconds": (seconds - 604800), "nanos": nanos},
+        }
+    )
+
+    results = client.list_time_series(
+        request={
+            "name": project_name,
+            "filter": 'metric.type = "redis.googleapis.com/stats/memory/usage"',
+            "interval": interval,
+            "view": monitoring_v3.ListTimeSeriesRequest.TimeSeriesView.FULL,
+        }
+    )
+    for result in results:
+        database = extractDatabaseName(result.resource.labels["instance_id"])
+        node_id = result.resource.labels["node_id"]
+        BytesUsedForCache = 0
+        for point in result.points:
+            if point.value.int64_value > BytesUsedForCache:
+                BytesUsedForCache = point.value.int64_value
+        metric_points[database][node_id]['BytesUsedForCache'] = BytesUsedForCache
+
+
+    # CacheHits	
+    # CacheMisses	
+    #TODO: Call the google cloud metrics "redis.googleapis.com/clients/connected" to get "CurrConnections"
+    # NetworkBytesIn	
+    # NetworkBytesOut	
+    # NetworkPacketsIn	
+    # NetworkPacketsOut	
+    # EngineCPUUtilization	
+    #TODO: Call the google cloud metrics "redis.googleapis.com/stats/evicted_keys" to get "Evictions"
+    # ReplicationBytes	
+    # ReplicationLag
+
+    return project_id, metric_points
+
+def create_workbooks(outDir, projects):
+    #For each project create an empty workbook dataframe with headers
+    for project in projects:
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = 'ClusterData'
+
+        for cluster in projects[project]:
+            for node in projects[project][cluster]:
+                
+                node_commandstats = projects[project][cluster][node]['commandstats']                
+                node_info = projects[project][cluster][node]
+                del node_info['commandstats']
+                node_stats = {**node_info, **node_commandstats}
+
+                if node_stats is not None:
+                    if ws.max_row == 1:
+                        ws.append(list(node_stats.keys()))    
+                    ws.append(list(node_stats.values()))
+
+        output_file_path = "%s/%s.xlsx" % (outDir, project)
+        print(f"Writing output file {output_file_path}")
+        wb.save(output_file_path)
 
 def main():
     if not sys.version_info >= (3, 6):
@@ -681,12 +753,17 @@ def main():
     # Scan for .json files in order to find the service account files
     path_to_json = '.'
     service_accounts = [os.path.abspath(os.path.join(path_to_json, pos_json)) for pos_json in os.listdir(path_to_json) if pos_json.endswith('.json')]
-    print(service_accounts)
 
-    # For each service account found try to fetch the metrics using the 
+    projects = {}
+    # For each service account found try to fetch the clusters metrics using the 
     # google cloud monitoring api metrics
     for service_account in service_accounts:
-        process_google_service_account(service_account, options.outDir)
+        project_id, stats = process_google_service_account(service_account)
+        projects[project_id] = stats
+
+    create_workbooks(options.outDir, projects)
+
+    print("Done!")
 
 
 if __name__ == "__main__":
