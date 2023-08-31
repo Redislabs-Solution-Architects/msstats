@@ -689,7 +689,8 @@ def process_google_service_account(service_account):
         for point in result.points:
             if point.value.int64_value > BytesUsedForCache:
                 BytesUsedForCache = point.value.int64_value
-        metric_points[database][node_id]['BytesUsedForCache'] = BytesUsedForCache
+        if database in metric_points:
+           metric_points[database][node_id]['BytesUsedForCache'] = BytesUsedForCache
 
 
     # CacheHits	
