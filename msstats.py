@@ -636,7 +636,7 @@ def process_google_service_account(service_account):
             }
         
         for point in result.points:
-            interval = point.interval.start_time.timestamp()
+            interval = point.interval.start_time.seconds
             if not interval in metric_points[database][node_id]["points"]:
                 metric_points[database][node_id]["points"][interval] = {}
             
