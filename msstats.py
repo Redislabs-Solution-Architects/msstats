@@ -566,8 +566,6 @@ def process_google_service_account(service_account, projectID):
 
     if projectID:
         project_id = projectID
-        print("project_id = ", project_id)
-        exit
     else: 
         try:
             f = open (service_account, "r")
