@@ -37,10 +37,31 @@ Copy your service account .json files in the root directory of the project:
 cp path/to/service_account.json .
 ```
 
-Execute 
+Grant monitoring.viewer role to the service account in all associated Google Cloud projects
 
 ```
-python msstats.py
+./grant_sa_monitoring_viewer.sh <service_account>
+
+For example,
+./grant_sa_monitoring_viewer.sh gmflau-sa@gcp-dev-day-nyc.iam.gserviceaccount.com
+```
+
+Execute
+
+```
+./get_msstats.sh <service_account>
+
+For example,
+./get_msstats.sh gmflau-sa@gcp-dev-day-nyc.iam.gserviceaccount.com
+```
+
+Remove monitoring.viewer role from the service account in all associated Google Cloud projects 
+
+```
+./remove_sa_monitoring_viewer.sh <service_account>
+
+For example,
+./remove_sa_monitoring_viewer.sh gmflau-sa@gcp-dev-day-nyc.iam.gserviceaccount.com
 ```
 
 When finished do not forget to deactivate the virtual environment
