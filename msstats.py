@@ -562,17 +562,22 @@ def processMetricPoint(metricPoint):
     
     return processedMetricPoint
 
-def process_google_service_account(service_account):
+def process_google_service_account(service_account, projectID):
 
-    try:
-        f = open (service_account, "r")
-        data = json.loads(f.read())
-        f.close()
-        project_id = data['project_id']
-        if not project_id:
-            raise Exception("Invalid json file")
-    except:
-        return
+    if projectID:
+        project_id = projectID
+        print("project_id = ", project_id)
+        exit
+    else: 
+        try:
+            f = open (service_account, "r")
+            data = json.loads(f.read())
+            f.close()
+            project_id = data['project_id']
+            if not project_id:
+                raise Exception("Invalid json file")
+        except:
+            return
 
     # Set the value GOOGLE_APPLICATION_CREDENTIALS variable
     os.environ.setdefault('GOOGLE_APPLICATION_CREDENTIALS', service_account)
@@ -745,6 +750,14 @@ def main():
         help="The directory to output the results. If the directory does not exist the script will try to create it.", 
         metavar="PATH"
     )
+    parser.add_option(
+        "-p",
+        "--project-id",
+        dest="project_id",
+        default="",
+        help="The Google Cloud Project ID containing MemoryStore instances.",
+        metavar="PROJECT_ID"
+    )
 
     (options, _) = parser.parse_args()
 
@@ -759,7 +772,7 @@ def main():
     # For each service account found try to fetch the clusters metrics using the 
     # google cloud monitoring api metrics
     for service_account in service_accounts:
-        project_id, stats = process_google_service_account(service_account)
+        project_id, stats = process_google_service_account(service_account, options.project_id)
         projects[project_id] = stats
 
     create_workbooks(options.outDir, projects)
