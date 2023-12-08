@@ -4,6 +4,7 @@ import optparse
 import time
 import json
 import openpyxl
+import datetime
 from google.cloud import monitoring_v3
 # from google.cloud.monitoring_v3.types.common import TypedValue
 
@@ -578,9 +579,8 @@ def process_google_service_account(service_account, projectID):
             return
 
     # Set the value GOOGLE_APPLICATION_CREDENTIALS variable
-    os.environ.setdefault('GOOGLE_APPLICATION_CREDENTIALS', service_account)
+    os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = service_account
     print("Processing Google Account with credentials found in: ", os.environ['GOOGLE_APPLICATION_CREDENTIALS'])
-
 
     client = monitoring_v3.MetricServiceClient()
     project_name = f"projects/{project_id}"
@@ -629,6 +629,7 @@ def process_google_service_account(service_account, projectID):
             metric_points[database] = {}
         if not node_id in metric_points[database]:
             metric_points[database][node_id] = { 
+                "Project ID": project_id,
                 "Source": "MS",
                 "ClusterId": database,
                 "NodeId": node_id,
@@ -710,13 +711,22 @@ def process_google_service_account(service_account, projectID):
 
     return project_id, metric_points
 
-def create_workbooks(outDir, projects):
-    #For each project create an empty workbook dataframe with headers
-    for project in projects:
-        wb = openpyxl.Workbook()
-        ws = wb.active
-        ws.title = 'ClusterData'
+def create_workbooks(outDir, projects, report_name):
 
+    # Open an Excel workbook
+    output_file_path = "%s/%s.xlsx" % (outDir, report_name) 
+    try:
+       # Try to open an existing workbook
+       wb = openpyxl.load_workbook(output_file_path)
+       print("Workbook loaded successfully.")
+    except FileNotFoundError:
+       # If the file doesn't exist, create a new workbook
+       wb = openpyxl.Workbook()
+       print("New workbook created.")    
+    ws = wb.active
+    ws.title = 'ClusterData'
+
+    for project in projects:
         for cluster in projects[project]:
             for node in projects[project][cluster]:
                 
@@ -729,10 +739,9 @@ def create_workbooks(outDir, projects):
                     if ws.max_row == 1:
                         ws.append(list(node_stats.keys()))    
                     ws.append(list(node_stats.values()))
-
-        output_file_path = "%s/%s.xlsx" % (outDir, project)
-        print(f"Writing output file {output_file_path}")
-        wb.save(output_file_path)
+    
+    print(f"Writing output file {output_file_path}")
+    wb.save(output_file_path)
 
 def main():
     if not sys.version_info >= (3, 6):
@@ -748,6 +757,14 @@ def main():
         help="The directory to output the results. If the directory does not exist the script will try to create it.", 
         metavar="PATH"
     )
+    parser.add_option(
+        "-r",
+        "--report-name",
+        dest="report_name",
+        default="ms-report-" + datetime.datetime.now().strftime("%Y%m%d_%H%M%S"),
+        help="The name of the msstats report.",
+        metavar="REPORT_NAME"
+    )  
     parser.add_option(
         "-p",
         "--project-id",
@@ -773,7 +790,7 @@ def main():
         project_id, stats = process_google_service_account(service_account, options.project_id)
         projects[project_id] = stats
 
-    create_workbooks(options.outDir, projects)
+    create_workbooks(options.outDir, projects, options.report_name)
 
     print("Done!")
 
