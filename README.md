@@ -7,6 +7,11 @@ The script will purely use google cloud monitoring api for getting the metrics. 
 This script by no means will affect the performance and the data stored in the Redis databases it is scanning.
 
 
+## Prerequisites 
+### Software to Install
+* [gcloud command line](https://cloud.google.com/sdk/docs/install)
+* [git](https://git-scm.com/book/en/v2/Getting-Started-Installing-Git)
+    
 ## Installation
 
 The script will run on any system with Python 3.6 or greater installed.
