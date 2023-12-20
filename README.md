@@ -21,7 +21,7 @@ The script will run on any system with Python 3.6 or greater installed.
 Download the repository
 
 ```
-git clone https://github.com/gmflau/msstats && cd msstats
+git clone https://github.com/Redislabs-Solution-Architects/msstats && cd msstats
 ```
 
 Prepare and activate the virtual environment
