@@ -9,7 +9,7 @@ This script by no means will affect the performance and the data stored in the R
 
 ## Installation
 
-The script will run on any system with Python 3.6 or greater installed.
+The script will run on any system with Python 3.9 or greater installed. If you receive dependency errors, try a more recent version of Python. Python is an ever changing environment and things change that are out of our control.
 
 ### Running the script from source
 
@@ -19,10 +19,12 @@ Download the repository
 git clone https://github.com/Redislabs-Solution-Architects/msstats && cd msstats
 ```
 
-Prepare and activate the virtual environment
+Prepare and activate the virtual environment.
+
+Ensure you have the right version of python in your path. On a Mac it might be `python3` as Mac as v. 2.7 installed by default.
 
 ```
-python3 -m venv .env && source .env/bin/activate
+python -m venv .env && source .env/bin/activate
 ```
 
 Install necessary libraries and dependencies
@@ -42,6 +44,8 @@ Execute
 ```
 python msstats.py
 ```
+
+This generates a file named <your project>.xlsx. You need to get that file and send it to Redis.
 
 When finished do not forget to deactivate the virtual environment
 
