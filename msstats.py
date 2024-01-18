@@ -562,20 +562,21 @@ def processMetricPoint(metricPoint):
     
     return processedMetricPoint
 
-def process_google_service_account(service_account):
+def process_google_service_account(service_account, project_id):
 
-    try:
-        f = open (service_account, "r")
-        data = json.loads(f.read())
-        f.close()
-        project_id = data['project_id']
-        if not project_id:
-            raise Exception("Invalid json file")
-    except:
-        return
+    if not project_id:
+        try:
+            f = open (service_account, "r")
+            data = json.loads(f.read())
+            f.close()
+            project_id = data['project_id']
+            if not project_id:
+                raise Exception("Invalid json file")
+        except:
+            return
 
     # Set the value GOOGLE_APPLICATION_CREDENTIALS variable
-    os.environ.setdefault('GOOGLE_APPLICATION_CREDENTIALS', service_account)
+    os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = service_account
     print("Processing Google Account with credentials found in: ", os.environ['GOOGLE_APPLICATION_CREDENTIALS'])
 
 
@@ -632,6 +633,8 @@ def process_google_service_account(service_account):
                 "NodeRole": "Master" if result.metric.labels['role'] == 'primary' else "Replica",
                 "NodeType": "",
                 "Region": result.resource.labels["region"],
+                "Project ID": project_id,
+                "InstanceId": result.resource.labels["instance_id"],
                 "points": {}
             }
         
@@ -693,6 +696,26 @@ def process_google_service_account(service_account):
            metric_points[database][node_id]['BytesUsedForCache'] = BytesUsedForCache
 
 
+    # Retrieve MaxMemory (a.k.a. Capacity)
+    results = client.list_time_series(
+        request={
+            "name": project_name,
+            "filter": 'metric.type = "redis.googleapis.com/stats/memory/maxmemory"',
+            "interval": interval,
+            "view": monitoring_v3.ListTimeSeriesRequest.TimeSeriesView.FULL,
+        }
+    ) 
+    for result in results:
+        database = extractDatabaseName(result.resource.labels["instance_id"])
+        node_id = result.resource.labels["node_id"]
+        MaxMemory = 0
+        for point in result.points:
+            if point.value.int64_value > MaxMemory:
+                MaxMemory = point.value.int64_value
+        if database in metric_points:
+           metric_points[database][node_id]['MaxMemory'] = MaxMemory
+
+           
     # CacheHits	
     # CacheMisses	
     #TODO: Call the google cloud metrics "redis.googleapis.com/clients/connected" to get "CurrConnections"
@@ -746,6 +769,14 @@ def main():
         metavar="PATH"
     )
 
+    parser.add_option(
+        "-p",
+        "--project-id",
+        dest="project_id",
+        default="",
+        help="The Google Cloud Project ID containing MemoryStore instances.",
+        metavar="PROJECT_ID"
+    )
     (options, _) = parser.parse_args()
 
     if not os.path.isdir(options.outDir):
@@ -759,7 +790,7 @@ def main():
     # For each service account found try to fetch the clusters metrics using the 
     # google cloud monitoring api metrics
     for service_account in service_accounts:
-        project_id, stats = process_google_service_account(service_account)
+        project_id, stats = process_google_service_account(service_account, options.project_id)
         projects[project_id] = stats
 
     create_workbooks(options.outDir, projects)
