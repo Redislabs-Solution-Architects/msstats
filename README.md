@@ -8,6 +8,9 @@ This script by no means will affect the performance and the data stored in the R
 
 
 ## Installation
+### Prerequisites - Software to Install
+* [Git](https://git-scm.com/book/en/v2/Getting-Started-Installing-Git)
+
 
 The script will run on any system with Python 3.9 or greater installed. If you receive dependency errors, try a more recent version of Python. Python is an ever changing environment and things change that are out of our control.
 
@@ -46,6 +49,46 @@ python msstats.py
 ```
 
 This generates a file named <your project>.xlsx. You need to get that file and send it to Redis.
+
+
+
+## Running MSStats Tool in Batch Mode
+### Prerequisites - Software to Install
+* [GCloud command line tools](https://cloud.google.com/sdk/docs/install)
+
+## Installation
+Follow the installation process as described in the previous section and apply the following before executing the script.
+
+
+Grant monitoring.viewer role to the service account in all associated Google Cloud projects
+
+```
+./grant_sa_monitoring_viewer.sh <service_account>
+```
+For example,
+```
+./grant_sa_monitoring_viewer.sh gmflau-sa@gcp-dev-day-nyc.iam.gserviceaccount.com
+```
+
+Execute
+
+```
+./get_msstats.sh <service_account>
+```
+For example,
+```
+./get_msstats.sh gmflau-sa@gcp-dev-day-nyc.iam.gserviceaccount.com
+```
+
+Remove monitoring.viewer role from the service account in all associated Google Cloud projects 
+
+```
+./remove_sa_monitoring_viewer.sh <service_account>
+```
+For example,
+```
+./remove_sa_monitoring_viewer.sh gmflau-sa@gcp-dev-day-nyc.iam.gserviceaccount.com
+```
 
 When finished do not forget to deactivate the virtual environment
 
