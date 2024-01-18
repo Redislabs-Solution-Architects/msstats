@@ -631,6 +631,7 @@ def process_google_service_account(service_account, projectID):
             metric_points[database][node_id] = { 
                 "Source": "MS",
                 "ClusterId": project_id + '.' + database,
+                "InstanceId": result.resource.labels["instance_id"],
                 "NodeId": node_id,
                 "NodeRole": "Master" if result.metric.labels['role'] == 'primary' else "Replica",
                 "NodeType": "",
@@ -676,6 +677,26 @@ def process_google_service_account(service_account, projectID):
             "start_time": {"seconds": (seconds - 604800), "nanos": nanos},
         }
     )
+
+    # Retrieve MaxMemory (a.k.a. Capacity)
+    results = client.list_time_series(
+        request={
+            "name": project_name,
+            "filter": 'metric.type = "redis.googleapis.com/stats/memory/maxmemory"',
+            "interval": interval,
+            "view": monitoring_v3.ListTimeSeriesRequest.TimeSeriesView.FULL,
+        }
+    ) 
+    for result in results:
+        database = extractDatabaseName(result.resource.labels["instance_id"])
+        node_id = result.resource.labels["node_id"]
+        MaxMemory = 0
+        for point in result.points:
+            if point.value.int64_value > MaxMemory:
+                MaxMemory = point.value.int64_value
+        if database in metric_points:
+           metric_points[database][node_id]['MaxMemory'] = MaxMemory
+
 
     results = client.list_time_series(
         request={
