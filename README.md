@@ -73,13 +73,9 @@ For example,
 Execute
 
 ```
-./get_msstats.sh <service_account>
+./batch_run_msstats.sh
 ```
-For example,
-```
-./get_msstats.sh gmflau-sa@gcp-dev-day-nyc.iam.gserviceaccount.com
-```
-
+    
 Remove monitoring.viewer role from the service account in all associated Google Cloud projects 
 
 ```

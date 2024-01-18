@@ -628,13 +628,13 @@ def process_google_service_account(service_account, project_id):
         if not node_id in metric_points[database]:
             metric_points[database][node_id] = { 
                 "Source": "MS",
-                "Project ID": project_id,
                 "ClusterId": database,
-                "InstanceId": result.resource.labels["instance_id"],
                 "NodeId": node_id,
                 "NodeRole": "Master" if result.metric.labels['role'] == 'primary' else "Replica",
                 "NodeType": "",
                 "Region": result.resource.labels["region"],
+                "Project ID": project_id,
+                "InstanceId": result.resource.labels["instance_id"],
                 "points": {}
             }
         
