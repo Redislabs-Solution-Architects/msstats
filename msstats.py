@@ -5,11 +5,14 @@ import time
 import json
 import openpyxl
 from google.cloud import monitoring_v3
+
+
 # from google.cloud.monitoring_v3.types.common import TypedValue
 
 
 def extractDatabaseName(instanceId):
     return instanceId.split("/")[-1]
+
 
 def get_command_by_args(commands, *args):
     count = 0
@@ -20,31 +23,33 @@ def get_command_by_args(commands, *args):
             pass
     return count
 
+
 def get_all_commands(commands):
     count = 0
     for value in commands.values():
         count += value
     return count
 
+
 def processNodeStats(processedMetricPoints):
     nodeStats = {
-        'Throughput (Ops)': 0, 
-        'GetTypeCmds': 0, 
-        'SetTypeCmds': 0, 
-        'OtherTypeCmds': 0, 
-        'BitmapBasedCmds': 0, 
-        'ClusterBasedCmds': 0, 
-        'EvalBasedCmds': 0, 
-        'GeoSpatialBasedCmds': 0, 
-        'HashBasedCmds': 0, 
-        'HyperLogLogBasedCmds': 0, 
-        'KeyBasedCmds': 0, 
-        'ListBasedCmds': 0, 
-        'PubSubBasedCmds': 0, 
-        'SetBasedCmds': 0, 
-        'SortedSetBasedCmds': 0, 
-        'StringBasedCmds': 0, 
-        'StreamBasedCmds': 0, 
+        'Throughput (Ops)': 0,
+        'GetTypeCmds': 0,
+        'SetTypeCmds': 0,
+        'OtherTypeCmds': 0,
+        'BitmapBasedCmds': 0,
+        'ClusterBasedCmds': 0,
+        'EvalBasedCmds': 0,
+        'GeoSpatialBasedCmds': 0,
+        'HashBasedCmds': 0,
+        'HyperLogLogBasedCmds': 0,
+        'KeyBasedCmds': 0,
+        'ListBasedCmds': 0,
+        'PubSubBasedCmds': 0,
+        'SetBasedCmds': 0,
+        'SortedSetBasedCmds': 0,
+        'StringBasedCmds': 0,
+        'StreamBasedCmds': 0,
         'TransactionBasedCmds': 0
     }
 
@@ -55,14 +60,15 @@ def processNodeStats(processedMetricPoints):
 
     return nodeStats
 
+
 def processMetricPoint(metricPoint):
     processedMetricPoint = {}
-    
+
     processedMetricPoint['Throughput (Ops)'] = round(get_all_commands(metricPoint))
 
     # Get type commands
     processedMetricPoint['GetTypeCmds'] = round(get_command_by_args(
-        metricPoint, 
+        metricPoint,
         'bitcount',
         'bitfield_ro',
         'bitpos',
@@ -83,7 +89,7 @@ def processMetricPoint(metricPoint):
         'hscan',
         'hstrlen',
         'hvals',
-        'pfcount', 
+        'pfcount',
         'dump',
         'exists',
         'expiretime',
@@ -144,7 +150,7 @@ def processMetricPoint(metricPoint):
 
     # Set type commands
     processedMetricPoint['SetTypeCmds'] = round(get_command_by_args(
-        metricPoint, 
+        metricPoint,
         'bitfield',
         'bitop',
         'setbit',
@@ -247,7 +253,7 @@ def processMetricPoint(metricPoint):
 
     # Other type commands
     processedMetricPoint['OtherTypeCmds'] = round(get_command_by_args(
-        metricPoint, 
+        metricPoint,
         'asking',
         'cluster',
         'readonly',
@@ -289,7 +295,7 @@ def processMetricPoint(metricPoint):
 
     # Bitmaps based commands
     processedMetricPoint['BitmapBasedCmds'] = round(get_command_by_args(
-        metricPoint, 
+        metricPoint,
         'bitcount',
         'bitfield',
         'bitfield_ro',
@@ -301,7 +307,7 @@ def processMetricPoint(metricPoint):
 
     # Cluster based commands
     processedMetricPoint['ClusterBasedCmds'] = round(get_command_by_args(
-        metricPoint, 
+        metricPoint,
         'asking',
         'cluster',
         'readonly',
@@ -310,7 +316,7 @@ def processMetricPoint(metricPoint):
 
     # Eval based commands
     processedMetricPoint['EvalBasedCmds'] = round(get_command_by_args(
-        metricPoint, 
+        metricPoint,
         'eval',
         'evalsha',
         'evalsha_ro',
@@ -323,7 +329,7 @@ def processMetricPoint(metricPoint):
 
     # GeoSpatial based commands
     processedMetricPoint['GeoSpatialBasedCmds'] = round(get_command_by_args(
-        metricPoint, 
+        metricPoint,
         'geoadd',
         'geodist',
         'geohash',
@@ -338,7 +344,7 @@ def processMetricPoint(metricPoint):
 
     # Hash based commands
     processedMetricPoint['HashBasedCmds'] = round(get_command_by_args(
-        metricPoint, 
+        metricPoint,
         'hdel',
         'hexists',
         'hget',
@@ -359,7 +365,7 @@ def processMetricPoint(metricPoint):
 
     # HyperLogLog based commands
     processedMetricPoint['HyperLogLogBasedCmds'] = round(get_command_by_args(
-        metricPoint, 
+        metricPoint,
         'pfadd',
         'pfcount',
         'pfdebug',
@@ -369,7 +375,7 @@ def processMetricPoint(metricPoint):
 
     # Keys based commands
     processedMetricPoint['KeyBasedCmds'] = round(get_command_by_args(
-        metricPoint, 
+        metricPoint,
         'copy',
         'del',
         'dump',
@@ -424,7 +430,7 @@ def processMetricPoint(metricPoint):
         'rpop',
         'rpoplpush',
         'rpush',
-        'rpushx'    
+        'rpushx'
     ))
 
     # PubSub based commands
@@ -443,7 +449,7 @@ def processMetricPoint(metricPoint):
 
     # Sets based commands
     processedMetricPoint['SetBasedCmds'] = round(get_command_by_args(
-        metricPoint, 
+        metricPoint,
         'sadd',
         'scard',
         'sdiff',
@@ -465,7 +471,7 @@ def processMetricPoint(metricPoint):
 
     # SortedSets based commands
     processedMetricPoint['SortedSetBasedCmds'] = round(get_command_by_args(
-        metricPoint, 
+        metricPoint,
         'bzmpop',
         'bzpopmax',
         'bzpopmin',
@@ -505,7 +511,7 @@ def processMetricPoint(metricPoint):
 
     # String based commands
     processedMetricPoint['StringBasedCmds'] = round(get_command_by_args(
-        metricPoint, 
+        metricPoint,
         'append',
         'decr',
         'decrby',
@@ -549,7 +555,7 @@ def processMetricPoint(metricPoint):
         'xsetid',
         'xtrim'
     ))
-    
+
     # Transaction based commands
     processedMetricPoint['TransactionBasedCmds'] = round(get_command_by_args(
         metricPoint,
@@ -559,14 +565,14 @@ def processMetricPoint(metricPoint):
         'unwatch',
         'watch'
     ))
-    
+
     return processedMetricPoint
 
-def process_google_service_account(service_account, project_id):
 
+def process_google_service_account(service_account, project_id, duration=604800, step=60):
     if not project_id:
         try:
-            f = open (service_account, "r")
+            f = open(service_account, "r")
             data = json.loads(f.read())
             f.close()
             project_id = data['project_id']
@@ -579,7 +585,6 @@ def process_google_service_account(service_account, project_id):
     os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = service_account
     print("Processing Google Account with credentials found in: ", os.environ['GOOGLE_APPLICATION_CREDENTIALS'])
 
-
     client = monitoring_v3.MetricServiceClient()
     project_name = f"projects/{project_id}"
 
@@ -590,12 +595,12 @@ def process_google_service_account(service_account, project_id):
     interval = monitoring_v3.TimeInterval(
         {
             "end_time": {"seconds": seconds, "nanos": nanos},
-            "start_time": {"seconds": (seconds - 604800), "nanos": nanos},
+            "start_time": {"seconds": (seconds - duration), "nanos": nanos},
         }
     )
     aggregation = monitoring_v3.Aggregation(
         {
-            "alignment_period": {"seconds": 60},
+            "alignment_period": {"seconds": step},
             "per_series_aligner": monitoring_v3.Aggregation.Aligner.ALIGN_RATE,
             "cross_series_reducer": monitoring_v3.Aggregation.Reducer.REDUCE_NONE
         }
@@ -605,7 +610,6 @@ def process_google_service_account(service_account, project_id):
 
     # Check the following resources for more metrics
     # https://cloud.google.com/memorystore/docs/redis/supported-monitoring-metrics
-
 
     # Call the google cloud "redis.googleapis.com/commands/calls" to get commandstats
     results = client.list_time_series(
@@ -626,7 +630,7 @@ def process_google_service_account(service_account, project_id):
         if not database in metric_points:
             metric_points[database] = {}
         if not node_id in metric_points[database]:
-            metric_points[database][node_id] = { 
+            metric_points[database][node_id] = {
                 "Source": "MS",
                 "ClusterId": database,
                 "NodeId": node_id,
@@ -637,12 +641,12 @@ def process_google_service_account(service_account, project_id):
                 "InstanceId": result.resource.labels["instance_id"],
                 "points": {}
             }
-        
+
         for point in result.points:
             interval = point.interval.start_time.timestamp()
             if not interval in metric_points[database][node_id]["points"]:
                 metric_points[database][node_id]["points"][interval] = {}
-            
+
             point_value = 0
             if (result.value_type == 2):
                 point_value = point.value.int64_value
@@ -656,16 +660,18 @@ def process_google_service_account(service_account, project_id):
             if not "processed_points" in metric_points[database][node]:
                 metric_points[database][node]["processed_points"] = {}
             for point in metric_points[database][node]["points"]:
-                metric_points[database][node]["processed_points"][point] = processMetricPoint(metric_points[database][node]["points"][point])
+                metric_points[database][node]["processed_points"][point] = processMetricPoint(
+                    metric_points[database][node]["points"][point])
 
     for database in metric_points:
         for node in metric_points[database]:
-            metric_points[database][node]['commandstats'] = processNodeStats(metric_points[database][node]["processed_points"])
+            metric_points[database][node]['commandstats'] = processNodeStats(
+                metric_points[database][node]["processed_points"])
             del metric_points[database][node]["points"]
-            del metric_points[database][node]["processed_points"] 
+            del metric_points[database][node]["processed_points"]
 
-    # CurrItems	
-    #Call the google cloud metrics "redis.googleapis.com/stats/memory/usage" to get "BytesUsedForCache"
+            # CurrItems
+    # Call the google cloud metrics "redis.googleapis.com/stats/memory/usage" to get "BytesUsedForCache"
     interval = monitoring_v3.TimeInterval()
     now = time.time()
     seconds = int(now)
@@ -693,8 +699,7 @@ def process_google_service_account(service_account, project_id):
             if point.value.int64_value > BytesUsedForCache:
                 BytesUsedForCache = point.value.int64_value
         if database in metric_points:
-           metric_points[database][node_id]['BytesUsedForCache'] = BytesUsedForCache
-
+            metric_points[database][node_id]['BytesUsedForCache'] = BytesUsedForCache
 
     # Retrieve MaxMemory (a.k.a. Capacity)
     results = client.list_time_series(
@@ -704,7 +709,7 @@ def process_google_service_account(service_account, project_id):
             "interval": interval,
             "view": monitoring_v3.ListTimeSeriesRequest.TimeSeriesView.FULL,
         }
-    ) 
+    )
     for result in results:
         database = extractDatabaseName(result.resource.labels["instance_id"])
         node_id = result.resource.labels["node_id"]
@@ -713,25 +718,25 @@ def process_google_service_account(service_account, project_id):
             if point.value.int64_value > MaxMemory:
                 MaxMemory = point.value.int64_value
         if database in metric_points:
-           metric_points[database][node_id]['MaxMemory'] = MaxMemory
+            metric_points[database][node_id]['MaxMemory'] = MaxMemory
 
-           
-    # CacheHits	
-    # CacheMisses	
-    #TODO: Call the google cloud metrics "redis.googleapis.com/clients/connected" to get "CurrConnections"
-    # NetworkBytesIn	
-    # NetworkBytesOut	
-    # NetworkPacketsIn	
-    # NetworkPacketsOut	
-    # EngineCPUUtilization	
-    #TODO: Call the google cloud metrics "redis.googleapis.com/stats/evicted_keys" to get "Evictions"
-    # ReplicationBytes	
+    # CacheHits
+    # CacheMisses
+    # TODO: Call the google cloud metrics "redis.googleapis.com/clients/connected" to get "CurrConnections"
+    # NetworkBytesIn
+    # NetworkBytesOut
+    # NetworkPacketsIn
+    # NetworkPacketsOut
+    # EngineCPUUtilization
+    # TODO: Call the google cloud metrics "redis.googleapis.com/stats/evicted_keys" to get "Evictions"
+    # ReplicationBytes
     # ReplicationLag
 
     return project_id, metric_points
 
+
 def create_workbooks(outDir, projects):
-    #For each project create an empty workbook dataframe with headers
+    # For each project create an empty workbook dataframe with headers
     for project in projects:
         wb = openpyxl.Workbook()
         ws = wb.active
@@ -739,20 +744,21 @@ def create_workbooks(outDir, projects):
 
         for cluster in projects[project]:
             for node in projects[project][cluster]:
-                
-                node_commandstats = projects[project][cluster][node]['commandstats']                
+
+                node_commandstats = projects[project][cluster][node]['commandstats']
                 node_info = projects[project][cluster][node]
                 del node_info['commandstats']
                 node_stats = {**node_info, **node_commandstats}
 
                 if node_stats is not None:
                     if ws.max_row == 1:
-                        ws.append(list(node_stats.keys()))    
+                        ws.append(list(node_stats.keys()))
                     ws.append(list(node_stats.values()))
 
         output_file_path = "%s/%s.xlsx" % (outDir, project)
         print(f"Writing output file {output_file_path}")
         wb.save(output_file_path)
+
 
 def main():
     if not sys.version_info >= (3, 6):
@@ -761,11 +767,11 @@ def main():
 
     parser = optparse.OptionParser()
     parser.add_option(
-        "-d", 
-        "--out-dir", 
-        dest="outDir", 
+        "-d",
+        "--out-dir",
+        dest="outDir",
         default=".",
-        help="The directory to output the results. If the directory does not exist the script will try to create it.", 
+        help="The directory to output the results. If the directory does not exist the script will try to create it.",
         metavar="PATH"
     )
 
@@ -777,6 +783,22 @@ def main():
         help="The Google Cloud Project ID containing MemoryStore instances.",
         metavar="PROJECT_ID"
     )
+
+    parser.add_option(
+        "--step",
+        dest="step",
+        type="int",
+        default=60,
+        help="Step (alignment_period) in seconds between data points. Default is 60."
+    )
+    parser.add_option(
+        "--duration",
+        dest="duration",
+        type="int",
+        default=604800,
+        help="Duration of the metric window in seconds. Default is 604800 (7 days)."
+    )
+
     (options, _) = parser.parse_args()
 
     if not os.path.isdir(options.outDir):
@@ -784,13 +806,17 @@ def main():
 
     # Scan for .json files in order to find the service account files
     path_to_json = '.'
-    service_accounts = [os.path.abspath(os.path.join(path_to_json, pos_json)) for pos_json in os.listdir(path_to_json) if pos_json.endswith('.json')]
+    service_accounts = [os.path.abspath(os.path.join(path_to_json, pos_json)) for pos_json in os.listdir(path_to_json)
+                        if pos_json.endswith('.json')]
 
     projects = {}
-    # For each service account found try to fetch the clusters metrics using the 
+    # For each service account found try to fetch the clusters metrics using the
     # google cloud monitoring api metrics
     for service_account in service_accounts:
-        project_id, stats = process_google_service_account(service_account, options.project_id)
+        project_id, stats = project_id, stats = process_google_service_account(service_account,
+                                                                               options.project_id,
+                                                                               options.duration,
+                                                                               options.step)
         projects[project_id] = stats
 
     create_workbooks(options.outDir, projects)

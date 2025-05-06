@@ -49,7 +49,19 @@ python msstats.py
 ```
 
 This generates a file named <your project>.xlsx. You need to get that file and send it to Redis.
+By default, it uses steps of 60 seconds and a period of 7 days (604800 seconds).
+You can set different values as follows : 
 
+````
+python msstats.py --duration 1800 --step 300
+````
+
+This can help solving issue like : 
+
+```
+google.api_core.exceptions.ResourceExhausted: 429 Maximum response size of 200000000 bytes reached. 
+Consider querying less data by increasing the step or interval, using more filters and aggregations, or limiting the time duration.
+```
 
 
 ## Running MSStats Tool in Batch Mode
