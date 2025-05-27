@@ -749,6 +749,7 @@ def create_workbooks(outDir, projects):
                 node_info = projects[project][cluster][node]
                 del node_info['commandstats']
                 node_stats = {**node_info, **node_commandstats}
+                node_stats['QPF'] = '' # empty QPF column
 
                 if node_stats is not None:
                     if ws.max_row == 1:
