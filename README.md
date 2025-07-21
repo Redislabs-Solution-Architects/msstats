@@ -1,6 +1,6 @@
 # MSSTATS
 
-MSStats is a tool for extracting MemoryStore database metrics. The script is able to process all the Redis databases, both single instance and replicated (Basic or Standard) ones that belong to a specific service account. Multiple service accounts can be used at once. 
+MSStats is a tool for extracting MemoryStore database metrics. The script is able to process all the Redis databases, both single instance and replicated (Basic or Standard) ones that belong to a specific service account. Multiple service accounts can be used at once.
 
 The script will purely use google cloud monitoring api for getting the metrics. It will never connect to the Redis databases and it will NOT send any commands to the databases.
 
@@ -42,7 +42,7 @@ Copy your service account .json files in the root directory of the project:
 cp path/to/service_account.json .
 ```
 
-Execute 
+Execute
 
 ```
 python msstats.py
@@ -50,16 +50,16 @@ python msstats.py
 
 This generates a file named <your project>.xlsx. You need to get that file and send it to Redis.
 By default, it uses steps of 60 seconds and a period of 7 days (604800 seconds).
-You can set different values as follows : 
+You can set different values as follows:
 
 ````
 python msstats.py --duration 1800 --step 300
 ````
 
-This can help solving issue like : 
+This can help solving issue like:
 
 ```
-google.api_core.exceptions.ResourceExhausted: 429 Maximum response size of 200000000 bytes reached. 
+google.api_core.exceptions.ResourceExhausted: 429 Maximum response size of 200000000 bytes reached.
 Consider querying less data by increasing the step or interval, using more filters and aggregations, or limiting the time duration.
 ```
 
@@ -87,8 +87,8 @@ Execute
 ```
 ./batch_run_msstats.sh
 ```
-    
-Remove monitoring.viewer role from the service account in all associated Google Cloud projects 
+
+Remove monitoring.viewer role from the service account in all associated Google Cloud projects
 
 ```
 ./remove_sa_monitoring_viewer.sh <service_account>
@@ -96,6 +96,18 @@ Remove monitoring.viewer role from the service account in all associated Google 
 For example,
 ```
 ./remove_sa_monitoring_viewer.sh gmflau-sa@gcp-dev-day-nyc.iam.gserviceaccount.com
+```
+
+## Testing and Code Quality
+
+Run all tests (unit and integration):
+```
+pytest test_msstats.py
+```
+
+Format code:
+```
+black *.py
 ```
 
 When finished do not forget to deactivate the virtual environment

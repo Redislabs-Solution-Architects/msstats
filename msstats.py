@@ -33,24 +33,24 @@ def get_all_commands(commands):
 
 def processNodeStats(processedMetricPoints):
     nodeStats = {
-        'Throughput (Ops)': 0,
-        'GetTypeCmds': 0,
-        'SetTypeCmds': 0,
-        'OtherTypeCmds': 0,
-        'BitmapBasedCmds': 0,
-        'ClusterBasedCmds': 0,
-        'EvalBasedCmds': 0,
-        'GeoSpatialBasedCmds': 0,
-        'HashBasedCmds': 0,
-        'HyperLogLogBasedCmds': 0,
-        'KeyBasedCmds': 0,
-        'ListBasedCmds': 0,
-        'PubSubBasedCmds': 0,
-        'SetBasedCmds': 0,
-        'SortedSetBasedCmds': 0,
-        'StringBasedCmds': 0,
-        'StreamBasedCmds': 0,
-        'TransactionBasedCmds': 0
+        "Throughput (Ops)": 0,
+        "GetTypeCmds": 0,
+        "SetTypeCmds": 0,
+        "OtherTypeCmds": 0,
+        "BitmapBasedCmds": 0,
+        "ClusterBasedCmds": 0,
+        "EvalBasedCmds": 0,
+        "GeoSpatialBasedCmds": 0,
+        "HashBasedCmds": 0,
+        "HyperLogLogBasedCmds": 0,
+        "KeyBasedCmds": 0,
+        "ListBasedCmds": 0,
+        "PubSubBasedCmds": 0,
+        "SetBasedCmds": 0,
+        "SortedSetBasedCmds": 0,
+        "StringBasedCmds": 0,
+        "StreamBasedCmds": 0,
+        "TransactionBasedCmds": 0,
     }
 
     for processedMetricPoint in processedMetricPoints.values():
@@ -64,533 +64,554 @@ def processNodeStats(processedMetricPoints):
 def processMetricPoint(metricPoint):
     processedMetricPoint = {}
 
-    processedMetricPoint['Throughput (Ops)'] = round(get_all_commands(metricPoint))
+    processedMetricPoint["Throughput (Ops)"] = round(get_all_commands(metricPoint))
 
     # Get type commands
-    processedMetricPoint['GetTypeCmds'] = round(get_command_by_args(
-        metricPoint,
-        'bitcount',
-        'bitfield_ro',
-        'bitpos',
-        'getbit',
-        'geodist',
-        'geohash',
-        'geopos',
-        'georadiusbymember_ro',
-        'georadius_ro',
-        'geosearch',
-        'hexists',
-        'hget',
-        'hgetall',
-        'hkeys',
-        'hlen',
-        'hmget',
-        'hrandfield',
-        'hscan',
-        'hstrlen',
-        'hvals',
-        'pfcount',
-        'dump',
-        'exists',
-        'expiretime',
-        'keys',
-        'pexpiretime',
-        'pttl',
-        'randomkey',
-        'scan',
-        'sort',
-        'sort_ro',
-        'touch',
-        'ttl',
-        'type',
-        'lindex',
-        'llen',
-        'lpos',
-        'lrange',
-        'scard',
-        'sdiff',
-        'sinter',
-        'sintercard',
-        'sismember',
-        'smembers',
-        'smismember',
-        'srandmember',
-        'sscan',
-        'sunion',
-        'zcard',
-        'zcount',
-        'zdiff',
-        'zinter',
-        'zintercard',
-        'zlexcount',
-        'zmscore',
-        'zrandmember',
-        'zrange',
-        'zrangebylex',
-        'zrangebyscore',
-        'zrank',
-        'zrevrange',
-        'zrevrank',
-        'zscan',
-        'zscore',
-        'zunion',
-        'get',
-        'getrange',
-        'lcs',
-        'mget',
-        'strlen',
-        'substr',
-        'xinfo',
-        'xlen',
-        'xpending',
-        'xrange',
-        'xread',
-        'xrevrange'
-    ))
+    processedMetricPoint["GetTypeCmds"] = round(
+        get_command_by_args(
+            metricPoint,
+            "bitcount",
+            "bitfield_ro",
+            "bitpos",
+            "getbit",
+            "geodist",
+            "geohash",
+            "geopos",
+            "georadiusbymember_ro",
+            "georadius_ro",
+            "geosearch",
+            "hexists",
+            "hget",
+            "hgetall",
+            "hkeys",
+            "hlen",
+            "hmget",
+            "hrandfield",
+            "hscan",
+            "hstrlen",
+            "hvals",
+            "pfcount",
+            "dump",
+            "exists",
+            "expiretime",
+            "keys",
+            "pexpiretime",
+            "pttl",
+            "randomkey",
+            "scan",
+            "sort",
+            "sort_ro",
+            "touch",
+            "ttl",
+            "type",
+            "lindex",
+            "llen",
+            "lpos",
+            "lrange",
+            "scard",
+            "sdiff",
+            "sinter",
+            "sintercard",
+            "sismember",
+            "smembers",
+            "smismember",
+            "srandmember",
+            "sscan",
+            "sunion",
+            "zcard",
+            "zcount",
+            "zdiff",
+            "zinter",
+            "zintercard",
+            "zlexcount",
+            "zmscore",
+            "zrandmember",
+            "zrange",
+            "zrangebylex",
+            "zrangebyscore",
+            "zrank",
+            "zrevrange",
+            "zrevrank",
+            "zscan",
+            "zscore",
+            "zunion",
+            "get",
+            "getrange",
+            "lcs",
+            "mget",
+            "strlen",
+            "substr",
+            "xinfo",
+            "xlen",
+            "xpending",
+            "xrange",
+            "xread",
+            "xrevrange",
+        )
+    )
 
     # Set type commands
-    processedMetricPoint['SetTypeCmds'] = round(get_command_by_args(
-        metricPoint,
-        'bitfield',
-        'bitop',
-        'setbit',
-        'geoadd',
-        'georadius',
-        'georadiusbymember',
-        'geosearchstore',
-        'hdel',
-        'hincrby',
-        'hincrbyfloat',
-        'hmset',
-        'hset',
-        'hsetnx',
-        'pfadd',
-        'pfdebug',
-        'pfmerge',
-        'copy',
-        'del',
-        'expire',
-        'expireat',
-        'migrate',
-        'move',
-        'persist',
-        'pexpire',
-        'pexpireat',
-        'rename',
-        'renamenx',
-        'restore',
-        'sort',
-        'unlink',
-        'blmove',
-        'blmpop',
-        'blpop',
-        'brpop',
-        'brpoplpush',
-        'linsert',
-        'lmove',
-        'lmpop',
-        'lpop',
-        'lpush',
-        'lpushx',
-        'lrem',
-        'lset',
-        'ltrim',
-        'rpop',
-        'rpoplpush',
-        'rpush',
-        'rpushx',
-        'sadd',
-        'sdiffstore',
-        'sinterstore',
-        'smove',
-        'spop',
-        'srem',
-        'sunionstore',
-        'bzmpop',
-        'bzpopmax',
-        'bzpopmin',
-        'zadd',
-        'zdiffstore',
-        'zincrby',
-        'zinterstore',
-        'zmpop',
-        'zpopmax',
-        'zpopmin',
-        'zrangestore',
-        'zrem',
-        'zremrangebylex',
-        'zremrangebyrank',
-        'zremrangebyscore',
-        'zrevrangebylex',
-        'zrevrangebyscore',
-        'zunionstore',
-        'append',
-        'decr',
-        'decrby',
-        'getdel',
-        'getex',
-        'getset',
-        'incr',
-        'incrby',
-        'incrbyfloat',
-        'mset',
-        'msetnx',
-        'psetex',
-        'set',
-        'setex',
-        'setnx',
-        'setrange',
-        'xack',
-        'xadd',
-        'xautoclaim',
-        'xclaim',
-        'xdel',
-        'xgroup',
-        'xreadgroup',
-        'xsetid',
-        'xtrim'
-    ))
+    processedMetricPoint["SetTypeCmds"] = round(
+        get_command_by_args(
+            metricPoint,
+            "bitfield",
+            "bitop",
+            "setbit",
+            "geoadd",
+            "georadius",
+            "georadiusbymember",
+            "geosearchstore",
+            "hdel",
+            "hincrby",
+            "hincrbyfloat",
+            "hmset",
+            "hset",
+            "hsetnx",
+            "pfadd",
+            "pfdebug",
+            "pfmerge",
+            "copy",
+            "del",
+            "expire",
+            "expireat",
+            "migrate",
+            "move",
+            "persist",
+            "pexpire",
+            "pexpireat",
+            "rename",
+            "renamenx",
+            "restore",
+            "sort",
+            "unlink",
+            "blmove",
+            "blmpop",
+            "blpop",
+            "brpop",
+            "brpoplpush",
+            "linsert",
+            "lmove",
+            "lmpop",
+            "lpop",
+            "lpush",
+            "lpushx",
+            "lrem",
+            "lset",
+            "ltrim",
+            "rpop",
+            "rpoplpush",
+            "rpush",
+            "rpushx",
+            "sadd",
+            "sdiffstore",
+            "sinterstore",
+            "smove",
+            "spop",
+            "srem",
+            "sunionstore",
+            "bzmpop",
+            "bzpopmax",
+            "bzpopmin",
+            "zadd",
+            "zdiffstore",
+            "zincrby",
+            "zinterstore",
+            "zmpop",
+            "zpopmax",
+            "zpopmin",
+            "zrangestore",
+            "zrem",
+            "zremrangebylex",
+            "zremrangebyrank",
+            "zremrangebyscore",
+            "zrevrangebylex",
+            "zrevrangebyscore",
+            "zunionstore",
+            "append",
+            "decr",
+            "decrby",
+            "getdel",
+            "getex",
+            "getset",
+            "incr",
+            "incrby",
+            "incrbyfloat",
+            "mset",
+            "msetnx",
+            "psetex",
+            "set",
+            "setex",
+            "setnx",
+            "setrange",
+            "xack",
+            "xadd",
+            "xautoclaim",
+            "xclaim",
+            "xdel",
+            "xgroup",
+            "xreadgroup",
+            "xsetid",
+            "xtrim",
+        )
+    )
 
     # Other type commands
-    processedMetricPoint['OtherTypeCmds'] = round(get_command_by_args(
-        metricPoint,
-        'asking',
-        'cluster',
-        'readonly',
-        'readwrite',
-        'auth',
-        'client',
-        'echo',
-        'hello',
-        'ping',
-        'quit',
-        'reset',
-        'select',
-        'eval',
-        'evalsha',
-        'evalsha_ro',
-        'eval_ro',
-        'fcall',
-        'fcall_ro',
-        'function',
-        'script',
-        'pfselftest',
-        'object',
-        'wait',
-        'psubscribe',
-        'publish',
-        'pubsub',
-        'punsubscribe',
-        'spublish',
-        'ssubscribe',
-        'subscribe',
-        'sunsubscribe',
-        'unsubscribe',
-        'discard',
-        'exec',
-        'multi',
-        'unwatch',
-        'watch'
-    ))
+    processedMetricPoint["OtherTypeCmds"] = round(
+        get_command_by_args(
+            metricPoint,
+            "asking",
+            "cluster",
+            "readonly",
+            "readwrite",
+            "auth",
+            "client",
+            "echo",
+            "hello",
+            "ping",
+            "quit",
+            "reset",
+            "select",
+            "eval",
+            "evalsha",
+            "evalsha_ro",
+            "eval_ro",
+            "fcall",
+            "fcall_ro",
+            "function",
+            "script",
+            "pfselftest",
+            "object",
+            "wait",
+            "psubscribe",
+            "publish",
+            "pubsub",
+            "punsubscribe",
+            "spublish",
+            "ssubscribe",
+            "subscribe",
+            "sunsubscribe",
+            "unsubscribe",
+            "discard",
+            "exec",
+            "multi",
+            "unwatch",
+            "watch",
+        )
+    )
 
     # Bitmaps based commands
-    processedMetricPoint['BitmapBasedCmds'] = round(get_command_by_args(
-        metricPoint,
-        'bitcount',
-        'bitfield',
-        'bitfield_ro',
-        'bitop',
-        'bitpos',
-        'getbit',
-        'setbit'
-    ))
+    processedMetricPoint["BitmapBasedCmds"] = round(
+        get_command_by_args(
+            metricPoint,
+            "bitcount",
+            "bitfield",
+            "bitfield_ro",
+            "bitop",
+            "bitpos",
+            "getbit",
+            "setbit",
+        )
+    )
 
     # Cluster based commands
-    processedMetricPoint['ClusterBasedCmds'] = round(get_command_by_args(
-        metricPoint,
-        'asking',
-        'cluster',
-        'readonly',
-        'readwrite'
-    ))
+    processedMetricPoint["ClusterBasedCmds"] = round(
+        get_command_by_args(metricPoint, "asking", "cluster", "readonly", "readwrite")
+    )
 
     # Eval based commands
-    processedMetricPoint['EvalBasedCmds'] = round(get_command_by_args(
-        metricPoint,
-        'eval',
-        'evalsha',
-        'evalsha_ro',
-        'eval_ro',
-        'fcall',
-        'fcall_ro',
-        'function',
-        'script'
-    ))
+    processedMetricPoint["EvalBasedCmds"] = round(
+        get_command_by_args(
+            metricPoint,
+            "eval",
+            "evalsha",
+            "evalsha_ro",
+            "eval_ro",
+            "fcall",
+            "fcall_ro",
+            "function",
+            "script",
+        )
+    )
 
     # GeoSpatial based commands
-    processedMetricPoint['GeoSpatialBasedCmds'] = round(get_command_by_args(
-        metricPoint,
-        'geoadd',
-        'geodist',
-        'geohash',
-        'geopos',
-        'georadius',
-        'georadiusbymember',
-        'georadiusbymember_ro',
-        'georadius_ro',
-        'geosearch',
-        'geosearchstore'
-    ))
+    processedMetricPoint["GeoSpatialBasedCmds"] = round(
+        get_command_by_args(
+            metricPoint,
+            "geoadd",
+            "geodist",
+            "geohash",
+            "geopos",
+            "georadius",
+            "georadiusbymember",
+            "georadiusbymember_ro",
+            "georadius_ro",
+            "geosearch",
+            "geosearchstore",
+        )
+    )
 
     # Hash based commands
-    processedMetricPoint['HashBasedCmds'] = round(get_command_by_args(
-        metricPoint,
-        'hdel',
-        'hexists',
-        'hget',
-        'hgetall',
-        'hincrby',
-        'hincrbyfloat',
-        'hkeys',
-        'hlen',
-        'hmget',
-        'hmset',
-        'hrandfield',
-        'hscan',
-        'hset',
-        'hsetnx',
-        'hstrlen',
-        'hvals'
-    ))
+    processedMetricPoint["HashBasedCmds"] = round(
+        get_command_by_args(
+            metricPoint,
+            "hdel",
+            "hexists",
+            "hget",
+            "hgetall",
+            "hincrby",
+            "hincrbyfloat",
+            "hkeys",
+            "hlen",
+            "hmget",
+            "hmset",
+            "hrandfield",
+            "hscan",
+            "hset",
+            "hsetnx",
+            "hstrlen",
+            "hvals",
+        )
+    )
 
     # HyperLogLog based commands
-    processedMetricPoint['HyperLogLogBasedCmds'] = round(get_command_by_args(
-        metricPoint,
-        'pfadd',
-        'pfcount',
-        'pfdebug',
-        'pfmerge',
-        'pfselftest'
-    ))
+    processedMetricPoint["HyperLogLogBasedCmds"] = round(
+        get_command_by_args(
+            metricPoint, "pfadd", "pfcount", "pfdebug", "pfmerge", "pfselftest"
+        )
+    )
 
     # Keys based commands
-    processedMetricPoint['KeyBasedCmds'] = round(get_command_by_args(
-        metricPoint,
-        'copy',
-        'del',
-        'dump',
-        'exists',
-        'expire',
-        'expireat',
-        'expiretime',
-        'keys',
-        'migrate',
-        'move',
-        'object',
-        'persist',
-        'pexpire',
-        'pexpireat',
-        'pexpiretime',
-        'pttl',
-        'randomkey',
-        'rename',
-        'renamenx',
-        'restore',
-        'scan',
-        'sort',
-        'sort_ro',
-        'touch',
-        'ttl',
-        'type',
-        'unlink',
-        'wait'
-    ))
+    processedMetricPoint["KeyBasedCmds"] = round(
+        get_command_by_args(
+            metricPoint,
+            "copy",
+            "del",
+            "dump",
+            "exists",
+            "expire",
+            "expireat",
+            "expiretime",
+            "keys",
+            "migrate",
+            "move",
+            "object",
+            "persist",
+            "pexpire",
+            "pexpireat",
+            "pexpiretime",
+            "pttl",
+            "randomkey",
+            "rename",
+            "renamenx",
+            "restore",
+            "scan",
+            "sort",
+            "sort_ro",
+            "touch",
+            "ttl",
+            "type",
+            "unlink",
+            "wait",
+        )
+    )
 
     # List based commands
-    processedMetricPoint['ListBasedCmds'] = round(get_command_by_args(
-        metricPoint,
-        'blmove',
-        'blmpop',
-        'blpop',
-        'brpop',
-        'brpoplpush',
-        'lindex',
-        'linsert',
-        'llen',
-        'lmove',
-        'lmpop',
-        'lpop',
-        'lpos',
-        'lpush',
-        'lpushx',
-        'lrange',
-        'lrem',
-        'lset',
-        'ltrim',
-        'rpop',
-        'rpoplpush',
-        'rpush',
-        'rpushx'
-    ))
+    processedMetricPoint["ListBasedCmds"] = round(
+        get_command_by_args(
+            metricPoint,
+            "blmove",
+            "blmpop",
+            "blpop",
+            "brpop",
+            "brpoplpush",
+            "lindex",
+            "linsert",
+            "llen",
+            "lmove",
+            "lmpop",
+            "lpop",
+            "lpos",
+            "lpush",
+            "lpushx",
+            "lrange",
+            "lrem",
+            "lset",
+            "ltrim",
+            "rpop",
+            "rpoplpush",
+            "rpush",
+            "rpushx",
+        )
+    )
 
     # PubSub based commands
-    processedMetricPoint['PubSubBasedCmds'] = round(get_command_by_args(
-        metricPoint,
-        'psubscribe',
-        'publish',
-        'pubsub',
-        'punsubscribe',
-        'spublish',
-        'ssubscribe',
-        'subscribe',
-        'sunsubscribe',
-        'unsubscribe'
-    ))
+    processedMetricPoint["PubSubBasedCmds"] = round(
+        get_command_by_args(
+            metricPoint,
+            "psubscribe",
+            "publish",
+            "pubsub",
+            "punsubscribe",
+            "spublish",
+            "ssubscribe",
+            "subscribe",
+            "sunsubscribe",
+            "unsubscribe",
+        )
+    )
 
     # Sets based commands
-    processedMetricPoint['SetBasedCmds'] = round(get_command_by_args(
-        metricPoint,
-        'sadd',
-        'scard',
-        'sdiff',
-        'sdiffstore',
-        'sinter',
-        'sintercard',
-        'sinterstore',
-        'sismember',
-        'smembers',
-        'smismember',
-        'smove',
-        'spop',
-        'srandmember',
-        'srem',
-        'sscan',
-        'sunion',
-        'sunionstore'
-    ))
+    processedMetricPoint["SetBasedCmds"] = round(
+        get_command_by_args(
+            metricPoint,
+            "sadd",
+            "scard",
+            "sdiff",
+            "sdiffstore",
+            "sinter",
+            "sintercard",
+            "sinterstore",
+            "sismember",
+            "smembers",
+            "smismember",
+            "smove",
+            "spop",
+            "srandmember",
+            "srem",
+            "sscan",
+            "sunion",
+            "sunionstore",
+        )
+    )
 
     # SortedSets based commands
-    processedMetricPoint['SortedSetBasedCmds'] = round(get_command_by_args(
-        metricPoint,
-        'bzmpop',
-        'bzpopmax',
-        'bzpopmin',
-        'zadd',
-        'zcard',
-        'zcount',
-        'zdiff',
-        'zdiffstore',
-        'zincrby',
-        'zinter',
-        'zintercard',
-        'zinterstore',
-        'zlexcount',
-        'zmpop',
-        'zmscore',
-        'zpopmax',
-        'zpopmin',
-        'zrandmember',
-        'zrange',
-        'zrangebylex',
-        'zrangebyscore',
-        'zrangestore',
-        'zrank',
-        'zrem',
-        'zremrangebylex',
-        'zremrangebyrank',
-        'zremrangebyscore',
-        'zrevrange',
-        'zrevrangebylex',
-        'zrevrangebyscore',
-        'zrevrank',
-        'zscan',
-        'zscore',
-        'zunion',
-        'zunionstore'
-    ))
+    processedMetricPoint["SortedSetBasedCmds"] = round(
+        get_command_by_args(
+            metricPoint,
+            "bzmpop",
+            "bzpopmax",
+            "bzpopmin",
+            "zadd",
+            "zcard",
+            "zcount",
+            "zdiff",
+            "zdiffstore",
+            "zincrby",
+            "zinter",
+            "zintercard",
+            "zinterstore",
+            "zlexcount",
+            "zmpop",
+            "zmscore",
+            "zpopmax",
+            "zpopmin",
+            "zrandmember",
+            "zrange",
+            "zrangebylex",
+            "zrangebyscore",
+            "zrangestore",
+            "zrank",
+            "zrem",
+            "zremrangebylex",
+            "zremrangebyrank",
+            "zremrangebyscore",
+            "zrevrange",
+            "zrevrangebylex",
+            "zrevrangebyscore",
+            "zrevrank",
+            "zscan",
+            "zscore",
+            "zunion",
+            "zunionstore",
+        )
+    )
 
     # String based commands
-    processedMetricPoint['StringBasedCmds'] = round(get_command_by_args(
-        metricPoint,
-        'append',
-        'decr',
-        'decrby',
-        'get',
-        'getdel',
-        'getex',
-        'getrange',
-        'getset',
-        'incr',
-        'incrby',
-        'incrbyfloat',
-        'lcs',
-        'mget',
-        'mset',
-        'msetnx',
-        'psetex',
-        'set',
-        'setex',
-        'setnx',
-        'setrange',
-        'strlen',
-        'substr'
-    ))
+    processedMetricPoint["StringBasedCmds"] = round(
+        get_command_by_args(
+            metricPoint,
+            "append",
+            "decr",
+            "decrby",
+            "get",
+            "getdel",
+            "getex",
+            "getrange",
+            "getset",
+            "incr",
+            "incrby",
+            "incrbyfloat",
+            "lcs",
+            "mget",
+            "mset",
+            "msetnx",
+            "psetex",
+            "set",
+            "setex",
+            "setnx",
+            "setrange",
+            "strlen",
+            "substr",
+        )
+    )
 
     # Stream based commands
-    processedMetricPoint['StreamBasedCmds'] = round(get_command_by_args(
-        metricPoint,
-        'xack',
-        'xadd',
-        'xautoclaim',
-        'xclaim',
-        'xdel',
-        'xgroup',
-        'xinfo',
-        'xlen',
-        'xpending',
-        'xrange',
-        'xread',
-        'xreadgroup',
-        'xrevrange',
-        'xsetid',
-        'xtrim'
-    ))
+    processedMetricPoint["StreamBasedCmds"] = round(
+        get_command_by_args(
+            metricPoint,
+            "xack",
+            "xadd",
+            "xautoclaim",
+            "xclaim",
+            "xdel",
+            "xgroup",
+            "xinfo",
+            "xlen",
+            "xpending",
+            "xrange",
+            "xread",
+            "xreadgroup",
+            "xrevrange",
+            "xsetid",
+            "xtrim",
+        )
+    )
 
     # Transaction based commands
-    processedMetricPoint['TransactionBasedCmds'] = round(get_command_by_args(
-        metricPoint,
-        'discard',
-        'exec',
-        'multi',
-        'unwatch',
-        'watch'
-    ))
+    processedMetricPoint["TransactionBasedCmds"] = round(
+        get_command_by_args(metricPoint, "discard", "exec", "multi", "unwatch", "watch")
+    )
 
     return processedMetricPoint
 
 
-def process_google_service_account(service_account, project_id, duration=604800, step=60):
+def process_google_service_account(
+    service_account, project_id, duration=604800, step=60
+):
     if not project_id:
         try:
             f = open(service_account, "r")
             data = json.loads(f.read())
             f.close()
-            project_id = data['project_id']
+            project_id = data["project_id"]
             if not project_id:
                 raise Exception("Invalid json file")
         except:
             return
 
     # Set the value GOOGLE_APPLICATION_CREDENTIALS variable
-    os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = service_account
-    print("Processing Google Account with credentials found in: ", os.environ['GOOGLE_APPLICATION_CREDENTIALS'])
+    os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = service_account
+    print(
+        "Processing Google Account with credentials found in: ",
+        os.environ["GOOGLE_APPLICATION_CREDENTIALS"],
+    )
 
     client = monitoring_v3.MetricServiceClient()
     project_name = f"projects/{project_id}"
 
     now = time.time()
     seconds = int(now)
-    nanos = int((now - seconds) * 10 ** 9)
+    nanos = int((now - seconds) * 10**9)
 
     interval = monitoring_v3.TimeInterval(
         {
@@ -602,7 +623,7 @@ def process_google_service_account(service_account, project_id, duration=604800,
         {
             "alignment_period": {"seconds": step},
             "per_series_aligner": monitoring_v3.Aggregation.Aligner.ALIGN_RATE,
-            "cross_series_reducer": monitoring_v3.Aggregation.Reducer.REDUCE_NONE
+            "cross_series_reducer": monitoring_v3.Aggregation.Reducer.REDUCE_NONE,
         }
     )
 
@@ -625,7 +646,7 @@ def process_google_service_account(service_account, project_id, duration=604800,
     for result in results:
         database = extractDatabaseName(result.resource.labels["instance_id"])
         node_id = result.resource.labels["node_id"]
-        cmd = result.metric.labels['cmd']
+        cmd = result.metric.labels["cmd"]
 
         if not database in metric_points:
             metric_points[database] = {}
@@ -634,12 +655,14 @@ def process_google_service_account(service_account, project_id, duration=604800,
                 "Source": "MS",
                 "ClusterId": database,
                 "NodeId": node_id,
-                "NodeRole": "Master" if result.metric.labels['role'] == 'primary' else "Replica",
+                "NodeRole": (
+                    "Master" if result.metric.labels["role"] == "primary" else "Replica"
+                ),
                 "NodeType": "",
                 "Region": result.resource.labels["region"],
                 "Project ID": project_id,
                 "InstanceId": result.resource.labels["instance_id"],
-                "points": {}
+                "points": {},
             }
 
         for point in result.points:
@@ -648,9 +671,9 @@ def process_google_service_account(service_account, project_id, duration=604800,
                 metric_points[database][node_id]["points"][interval] = {}
 
             point_value = 0
-            if (result.value_type == 2):
+            if result.value_type == 2:
                 point_value = point.value.int64_value
-            elif (result.value_type == 3):
+            elif result.value_type == 3:
                 point_value = point.value.double_value
 
             metric_points[database][node_id]["points"][interval][cmd] = point_value
@@ -660,13 +683,15 @@ def process_google_service_account(service_account, project_id, duration=604800,
             if not "processed_points" in metric_points[database][node]:
                 metric_points[database][node]["processed_points"] = {}
             for point in metric_points[database][node]["points"]:
-                metric_points[database][node]["processed_points"][point] = processMetricPoint(
-                    metric_points[database][node]["points"][point])
+                metric_points[database][node]["processed_points"][point] = (
+                    processMetricPoint(metric_points[database][node]["points"][point])
+                )
 
     for database in metric_points:
         for node in metric_points[database]:
-            metric_points[database][node]['commandstats'] = processNodeStats(
-                metric_points[database][node]["processed_points"])
+            metric_points[database][node]["commandstats"] = processNodeStats(
+                metric_points[database][node]["processed_points"]
+            )
             del metric_points[database][node]["points"]
             del metric_points[database][node]["processed_points"]
 
@@ -675,7 +700,7 @@ def process_google_service_account(service_account, project_id, duration=604800,
     interval = monitoring_v3.TimeInterval()
     now = time.time()
     seconds = int(now)
-    nanos = int((now - seconds) * 10 ** 9)
+    nanos = int((now - seconds) * 10**9)
     interval = monitoring_v3.TimeInterval(
         {
             "end_time": {"seconds": seconds, "nanos": nanos},
@@ -699,7 +724,7 @@ def process_google_service_account(service_account, project_id, duration=604800,
             if point.value.int64_value > BytesUsedForCache:
                 BytesUsedForCache = point.value.int64_value
         if database in metric_points:
-            metric_points[database][node_id]['BytesUsedForCache'] = BytesUsedForCache
+            metric_points[database][node_id]["BytesUsedForCache"] = BytesUsedForCache
 
     # Retrieve MaxMemory (a.k.a. Capacity)
     results = client.list_time_series(
@@ -718,7 +743,7 @@ def process_google_service_account(service_account, project_id, duration=604800,
             if point.value.int64_value > MaxMemory:
                 MaxMemory = point.value.int64_value
         if database in metric_points:
-            metric_points[database][node_id]['MaxMemory'] = MaxMemory
+            metric_points[database][node_id]["MaxMemory"] = MaxMemory
 
     # CacheHits
     # CacheMisses
@@ -740,14 +765,14 @@ def create_workbooks(outDir, projects):
     for project in projects:
         wb = openpyxl.Workbook()
         ws = wb.active
-        ws.title = 'ClusterData'
+        ws.title = "ClusterData"
 
         for cluster in projects[project]:
             for node in projects[project][cluster]:
 
-                node_commandstats = projects[project][cluster][node]['commandstats']
+                node_commandstats = projects[project][cluster][node]["commandstats"]
                 node_info = projects[project][cluster][node]
-                del node_info['commandstats']
+                del node_info["commandstats"]
                 node_stats = {**node_info, **node_commandstats}
 
                 if node_stats is not None:
@@ -772,7 +797,7 @@ def main():
         dest="outDir",
         default=".",
         help="The directory to output the results. If the directory does not exist the script will try to create it.",
-        metavar="PATH"
+        metavar="PATH",
     )
 
     parser.add_option(
@@ -781,7 +806,7 @@ def main():
         dest="project_id",
         default="",
         help="The Google Cloud Project ID containing MemoryStore instances.",
-        metavar="PROJECT_ID"
+        metavar="PROJECT_ID",
     )
 
     parser.add_option(
@@ -789,14 +814,14 @@ def main():
         dest="step",
         type="int",
         default=60,
-        help="Step (alignment_period) in seconds between data points. Default is 60."
+        help="Step (alignment_period) in seconds between data points. Default is 60.",
     )
     parser.add_option(
         "--duration",
         dest="duration",
         type="int",
         default=604800,
-        help="Duration of the metric window in seconds. Default is 604800 (7 days)."
+        help="Duration of the metric window in seconds. Default is 604800 (7 days).",
     )
 
     (options, _) = parser.parse_args()
@@ -805,18 +830,20 @@ def main():
         os.makedirs(options.outDir)
 
     # Scan for .json files in order to find the service account files
-    path_to_json = '.'
-    service_accounts = [os.path.abspath(os.path.join(path_to_json, pos_json)) for pos_json in os.listdir(path_to_json)
-                        if pos_json.endswith('.json')]
+    path_to_json = "."
+    service_accounts = [
+        os.path.abspath(os.path.join(path_to_json, pos_json))
+        for pos_json in os.listdir(path_to_json)
+        if pos_json.endswith(".json")
+    ]
 
     projects = {}
     # For each service account found try to fetch the clusters metrics using the
     # google cloud monitoring api metrics
     for service_account in service_accounts:
-        project_id, stats = project_id, stats = process_google_service_account(service_account,
-                                                                               options.project_id,
-                                                                               options.duration,
-                                                                               options.step)
+        project_id, stats = project_id, stats = process_google_service_account(
+            service_account, options.project_id, options.duration, options.step
+        )
         projects[project_id] = stats
 
     create_workbooks(options.outDir, projects)
