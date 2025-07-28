@@ -136,3 +136,6 @@ config.ini
 *.xlsx
 *.csv
 *.json
+
+# Claude
+.claude
