@@ -7,9 +7,6 @@ import openpyxl
 from google.cloud import monitoring_v3
 
 
-# from google.cloud.monitoring_v3.types.common import TypedValue
-
-
 def extractDatabaseName(instanceId):
     return instanceId.split("/")[-1]
 
@@ -597,13 +594,14 @@ def process_google_service_account(
             if not project_id:
                 raise Exception("Invalid json file")
         except:
+            print(f"Error: Could not read service account file {service_account}")
             return
 
     # Set the value GOOGLE_APPLICATION_CREDENTIALS variable
     os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = service_account
     print(
         "Processing Google Account with credentials found in: ",
-        os.environ["GOOGLE_APPLICATION_CREDENTIALS"],
+        service_account,
     )
 
     client = monitoring_v3.MetricServiceClient()
@@ -633,18 +631,36 @@ def process_google_service_account(
     # https://cloud.google.com/memorystore/docs/redis/supported-monitoring-metrics
 
     # Call the google cloud "redis.googleapis.com/commands/calls" to get commandstats
-    results = client.list_time_series(
-        request={
-            "name": project_name,
-            "filter": 'metric.type = "redis.googleapis.com/commands/calls"',
-            "interval": interval,
-            "view": monitoring_v3.ListTimeSeriesRequest.TimeSeriesView.FULL,
-            "aggregation": aggregation,
-        }
-    )
+    try:
+        results = list(
+            client.list_time_series(
+                request={
+                    "name": project_name,
+                    "filter": 'metric.type = "redis.googleapis.com/commands/calls"',
+                    "interval": interval,
+                    "view": monitoring_v3.ListTimeSeriesRequest.TimeSeriesView.FULL,
+                    "aggregation": aggregation,
+                }
+            )
+        )
 
+        if not results:
+            print(f"Warning: No Redis instances found in project {project_id}")
+            print(
+                "This could mean: no instances exist, missing permissions, or no activity"
+            )
+            return project_id, {}
+
+        print(f"Found Redis metrics for project {project_id}")
+
+    except Exception as e:
+        print(f"Error querying Redis metrics: {e}")
+        return project_id, {}
+
+    redis_instances = set()
     for result in results:
         database = extractDatabaseName(result.resource.labels["instance_id"])
+        redis_instances.add(database)
         node_id = result.resource.labels["node_id"]
         cmd = result.metric.labels["cmd"]
 
@@ -678,6 +694,11 @@ def process_google_service_account(
 
             metric_points[database][node_id]["points"][interval][cmd] = point_value
 
+    if redis_instances:
+        print(
+            f"Found {len(redis_instances)} Redis instance(s): {', '.join(sorted(redis_instances))}"
+        )
+
     for database in metric_points:
         for node in metric_points[database]:
             if not "processed_points" in metric_points[database][node]:
@@ -708,14 +729,17 @@ def process_google_service_account(
         }
     )
 
-    results = client.list_time_series(
-        request={
-            "name": project_name,
-            "filter": 'metric.type = "redis.googleapis.com/stats/memory/usage"',
-            "interval": interval,
-            "view": monitoring_v3.ListTimeSeriesRequest.TimeSeriesView.FULL,
-        }
-    )
+    try:
+        results = client.list_time_series(
+            request={
+                "name": project_name,
+                "filter": 'metric.type = "redis.googleapis.com/stats/memory/usage"',
+                "interval": interval,
+                "view": monitoring_v3.ListTimeSeriesRequest.TimeSeriesView.FULL,
+            }
+        )
+    except Exception as e:
+        print(f"Error querying memory metrics: {e}")
     for result in results:
         database = extractDatabaseName(result.resource.labels["instance_id"])
         node_id = result.resource.labels["node_id"]
@@ -727,14 +751,17 @@ def process_google_service_account(
             metric_points[database][node_id]["BytesUsedForCache"] = BytesUsedForCache
 
     # Retrieve MaxMemory (a.k.a. Capacity)
-    results = client.list_time_series(
-        request={
-            "name": project_name,
-            "filter": 'metric.type = "redis.googleapis.com/stats/memory/maxmemory"',
-            "interval": interval,
-            "view": monitoring_v3.ListTimeSeriesRequest.TimeSeriesView.FULL,
-        }
-    )
+    try:
+        results = client.list_time_series(
+            request={
+                "name": project_name,
+                "filter": 'metric.type = "redis.googleapis.com/stats/memory/maxmemory"',
+                "interval": interval,
+                "view": monitoring_v3.ListTimeSeriesRequest.TimeSeriesView.FULL,
+            }
+        )
+    except Exception as e:
+        print(f"Error querying max memory metrics: {e}")
     for result in results:
         database = extractDatabaseName(result.resource.labels["instance_id"])
         node_id = result.resource.labels["node_id"]
@@ -757,6 +784,9 @@ def process_google_service_account(
     # ReplicationBytes
     # ReplicationLag
 
+    if not metric_points:
+        print(f"Warning: No data for project {project_id} - Excel file will be empty")
+
     return project_id, metric_points
 
 
@@ -768,8 +798,8 @@ def create_workbooks(outDir, projects):
         ws.title = "ClusterData"
 
         for cluster in projects[project]:
-            for node in projects[project][cluster]:
 
+            for node in projects[project][cluster]:
                 node_commandstats = projects[project][cluster][node]["commandstats"]
                 node_info = projects[project][cluster][node]
                 del node_info["commandstats"]
@@ -786,8 +816,8 @@ def create_workbooks(outDir, projects):
 
 
 def main():
-    if not sys.version_info >= (3, 6):
-        print("Please upgrade python to a version at least 3.6")
+    if not sys.version_info >= (3, 9):
+        print("Please upgrade python to a version at least 3.9")
         exit(1)
 
     parser = optparse.OptionParser()
@@ -837,14 +867,22 @@ def main():
         if pos_json.endswith(".json")
     ]
 
+    if not service_accounts:
+        print("Error: No service account JSON files found in current directory")
+        exit(1)
+
     projects = {}
     # For each service account found try to fetch the clusters metrics using the
     # google cloud monitoring api metrics
     for service_account in service_accounts:
-        project_id, stats = project_id, stats = process_google_service_account(
+        project_id, stats = process_google_service_account(
             service_account, options.project_id, options.duration, options.step
         )
         projects[project_id] = stats
+
+    if not projects:
+        print("Error: No projects were successfully processed")
+        exit(1)
 
     create_workbooks(options.outDir, projects)
 
