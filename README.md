@@ -37,6 +37,7 @@ pip install -r requirements.txt
 ```
 
 Copy your service account .json files in the root directory of the project:
+(skip this step if you want to use the user-account of your machine, cf you already use `gcloud` on the machine)
 
 ```
 cp path/to/service_account.json .
@@ -45,7 +46,11 @@ cp path/to/service_account.json .
 Execute
 
 ```
+# To use the copied service-account:
 python msstats.py
+
+# or, to use the `gcloud` user:
+python3 msstats.py --user-account
 ```
 
 This generates a file named <your project>.xlsx. You need to get that file and send it to Redis.
