@@ -891,6 +891,7 @@ def main():
         # For each service account found try to fetch the clusters metrics using the
         # google cloud monitoring api metrics
         for service_account in service_accounts:
+            print(f"Loading service-account: {service_account}")
             project_id = get_project_from_service_account_and_authenticate(service_account)
             if options.project_id and options.project_id != project_id:
                 # skip this project, since only one project has been requested
