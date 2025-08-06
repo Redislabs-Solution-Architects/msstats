@@ -844,7 +844,7 @@ def main():
     parser.add_option(
         "--user-account",
         dest="use_user_account",
-        action='store_true',
+        action="store_true",
         default=False,
         help="Connect to GCP using the (default) auth of the machine, thus not using any service-accounts",
     )
@@ -870,7 +870,7 @@ def main():
         os.makedirs(options.outDir)
 
     projects = {}
-    if(options.use_user_account):
+    if options.use_user_account:
         # We don't use the service-account
         projects[options.project_id] = process_google_project(
             options.project_id, options.duration, options.step
@@ -892,7 +892,9 @@ def main():
         # google cloud monitoring api metrics
         for service_account in service_accounts:
             print(f"Loading service-account: {service_account}")
-            project_id = get_project_from_service_account_and_authenticate(service_account)
+            project_id = get_project_from_service_account_and_authenticate(
+                service_account
+            )
             if options.project_id and options.project_id != project_id:
                 # skip this project, since only one project has been requested
                 continue
