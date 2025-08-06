@@ -49,8 +49,8 @@ Execute
 # To use the copied service-account:
 python msstats.py
 
-# or, to use the `gcloud` user:
-python3 msstats.py --user-account
+# or, to use the `gcloud` user (then, you _need_ to give a precise project):
+python3 msstats.py --user-account --project-id my-gcp-project
 ```
 
 This generates a file named <your project>.xlsx. You need to get that file and send it to Redis.
