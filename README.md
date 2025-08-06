@@ -37,7 +37,7 @@ pip install -r requirements.txt
 ```
 
 Copy your service account .json files in the root directory of the project:
-(skip this step if you want to use the user-account of your machine, cf you already use `gcloud` on the machine)
+(skip this step if you want to use the user-account of your machine, if you already use `gcloud` on the machine)
 
 ```
 cp path/to/service_account.json .
