@@ -11,7 +11,8 @@ from msstats import (
     get_all_commands,
     processNodeStats,
     processMetricPoint,
-    process_google_service_account,
+    get_project_from_service_account_and_authenticate,
+    process_google_project,
     create_workbooks,
 )
 
@@ -289,7 +290,7 @@ class TestMSStatsIntegration(unittest.TestCase):
         os.rmdir(self.temp_dir)
 
     @patch("msstats.monitoring_v3.MetricServiceClient")
-    def test_process_google_service_account_with_mock_data(self, mock_client_class):
+    def test_process_google_project_with_mock_data(self, mock_client_class):
         """Test processing service account with mocked Google Cloud responses"""
         # Mock the monitoring client
         mock_client = MagicMock()
@@ -341,15 +342,13 @@ class TestMSStatsIntegration(unittest.TestCase):
         ]
 
         # Test the function
-        project_id, stats = process_google_service_account(
-            self.service_account_file,
+        stats = process_google_project(
             self.test_project_id,
             duration=3600,  # 1 hour
             step=60,
         )
 
         # Assertions
-        self.assertEqual(project_id, self.test_project_id)
         self.assertIsInstance(stats, dict)
         self.assertIn("test-redis", stats)
 
@@ -441,15 +440,9 @@ class TestMSStatsIntegration(unittest.TestCase):
         mock_client_class.return_value = mock_client
         mock_client.list_time_series.return_value = []
 
-        # Test with explicit project_id
-        project_id, _ = process_google_service_account(
-            self.service_account_file, "explicit-project-id"
-        )
-        self.assertEqual(project_id, "explicit-project-id")
-
-        # Test without explicit project_id (should read from file)
-        project_id, _ = process_google_service_account(
-            self.service_account_file, ""  # Empty project_id should read from file
+        # It should read from file:
+        project_id = get_project_from_service_account_and_authenticate(
+            self.service_account_file
         )
         self.assertEqual(project_id, self.test_project_id)
 
@@ -461,7 +454,7 @@ class TestMSStatsIntegration(unittest.TestCase):
             f.write("invalid json content")
 
         # Should return None for invalid files
-        result = process_google_service_account(invalid_file, "")
+        result = get_project_from_service_account_and_authenticate(invalid_file)
         self.assertIsNone(result)
 
         # Clean up
@@ -472,7 +465,7 @@ class TestMSStatsIntegration(unittest.TestCase):
         nonexistent_file = os.path.join(self.temp_dir, "nonexistent.json")
 
         # Should return None for missing files
-        result = process_google_service_account(nonexistent_file, "")
+        result = get_project_from_service_account_and_authenticate(nonexistent_file)
         self.assertIsNone(result)
 
 
