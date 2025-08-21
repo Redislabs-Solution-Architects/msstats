@@ -609,6 +609,7 @@ def process_google_project(project_id, duration=604800, step=60):
 
     client = monitoring_v3.MetricServiceClient()
     project_name = f"projects/{project_id}"
+    print(f"Working on project {project_id}:")
 
     now = time.time()
     seconds = int(now)
@@ -634,6 +635,7 @@ def process_google_project(project_id, duration=604800, step=60):
     # https://cloud.google.com/memorystore/docs/redis/supported-monitoring-metrics
 
     # Call the google cloud "redis.googleapis.com/commands/calls" to get commandstats
+    print(f"Loading the Redis metrics of calls (commandstats)...")
     try:
         results = list(
             client.list_time_series(
@@ -732,6 +734,7 @@ def process_google_project(project_id, duration=604800, step=60):
         }
     )
 
+    print(f"Loading memory usage...")
     try:
         results = client.list_time_series(
             request={
@@ -753,7 +756,7 @@ def process_google_project(project_id, duration=604800, step=60):
         if database in metric_points:
             metric_points[database][node_id]["BytesUsedForCache"] = BytesUsedForCache
 
-    # Retrieve MaxMemory (a.k.a. Capacity)
+    print(f"Loading MaxMemory (aka capacity)...")
     try:
         results = client.list_time_series(
             request={
