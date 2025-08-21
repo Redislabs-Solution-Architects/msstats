@@ -582,20 +582,18 @@ def processMetricPoint(metricPoint):
     return processedMetricPoint
 
 
-def process_google_service_account(
-    service_account, project_id, duration=604800, step=60
-):
-    if not project_id:
-        try:
-            f = open(service_account, "r")
-            data = json.loads(f.read())
-            f.close()
-            project_id = data["project_id"]
-            if not project_id:
-                raise Exception("Invalid json file")
-        except:
-            print(f"Error: Could not read service account file {service_account}")
-            return
+def get_project_from_service_account_and_authenticate(service_account):
+    try:
+        f = open(service_account, "r")
+        data = json.loads(f.read())
+        f.close()
+        project_id = data["project_id"]
+        if not project_id:
+            raise Exception("Invalid json file")
+        return project_id
+    except:
+        print(f"Error: Could not read service account file {service_account}")
+        return
 
     # Set the value GOOGLE_APPLICATION_CREDENTIALS variable
     os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = service_account
@@ -603,6 +601,11 @@ def process_google_service_account(
         "Processing Google Account with credentials found in: ",
         service_account,
     )
+
+
+def process_google_project(project_id, duration=604800, step=60):
+    if not project_id:
+        raise Exception("Missing project_id")
 
     client = monitoring_v3.MetricServiceClient()
     project_name = f"projects/{project_id}"
@@ -787,7 +790,7 @@ def process_google_service_account(
     if not metric_points:
         print(f"Warning: No data for project {project_id} - Excel file will be empty")
 
-    return project_id, metric_points
+    return metric_points
 
 
 def create_workbooks(outDir, projects):
@@ -838,6 +841,13 @@ def main():
         help="The Google Cloud Project ID containing MemoryStore instances.",
         metavar="PROJECT_ID",
     )
+    parser.add_option(
+        "--user-account",
+        dest="use_user_account",
+        action="store_true",
+        default=False,
+        help="Connect to GCP using the (default) auth of the machine, thus not using any service-accounts",
+    )
 
     parser.add_option(
         "--step",
@@ -859,26 +869,38 @@ def main():
     if not os.path.isdir(options.outDir):
         os.makedirs(options.outDir)
 
-    # Scan for .json files in order to find the service account files
-    path_to_json = "."
-    service_accounts = [
-        os.path.abspath(os.path.join(path_to_json, pos_json))
-        for pos_json in os.listdir(path_to_json)
-        if pos_json.endswith(".json")
-    ]
-
-    if not service_accounts:
-        print("Error: No service account JSON files found in current directory")
-        exit(1)
-
     projects = {}
-    # For each service account found try to fetch the clusters metrics using the
-    # google cloud monitoring api metrics
-    for service_account in service_accounts:
-        project_id, stats = process_google_service_account(
-            service_account, options.project_id, options.duration, options.step
+    if options.use_user_account:
+        # We don't use the service-account
+        projects[options.project_id] = process_google_project(
+            options.project_id, options.duration, options.step
         )
-        projects[project_id] = stats
+    else:
+        # Scan for .json files in order to find the service account files
+        path_to_json = "."
+        service_accounts = [
+            os.path.abspath(os.path.join(path_to_json, pos_json))
+            for pos_json in os.listdir(path_to_json)
+            if pos_json.endswith(".json")
+        ]
+
+        if not service_accounts:
+            print("Error: No service account JSON files found in current directory")
+            exit(1)
+
+        # For each service account found try to fetch the clusters metrics using the
+        # google cloud monitoring api metrics
+        for service_account in service_accounts:
+            print(f"Loading service-account: {service_account}")
+            project_id = get_project_from_service_account_and_authenticate(
+                service_account
+            )
+            if options.project_id and options.project_id != project_id:
+                # skip this project, since only one project has been requested
+                continue
+            projects[project_id] = process_google_project(
+                project_id, options.duration, options.step
+            )
 
     if not projects:
         print("Error: No projects were successfully processed")
