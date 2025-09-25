@@ -36,7 +36,9 @@ from google.cloud import monitoring_v3
 try:
     import msstats as ms
 except ImportError as ex:
-    print(f"Error: msstats.py not found in PYTHONPATH. Place msstats.py next to this script. {ex}")
+    print(
+        f"Error: msstats.py not found in PYTHONPATH. Place msstats.py next to this script. {ex}"
+    )
     sys.exit(1)
 
 # ---------- Metric maps per product ----------
@@ -62,7 +64,14 @@ CLUSTER_METRICS = {
 # Helper label candidates
 REGION_LABELS = ("region", "location")
 ZONE_LABELS = ("zone",)
-NODETYPE_LABELS = ("node_type", "cluster_node_type", "tier", "service_tier", "instance_type")
+NODETYPE_LABELS = (
+    "node_type",
+    "cluster_node_type",
+    "tier",
+    "service_tier",
+    "instance_type",
+)
+
 
 def _pick(labels: Dict[str, str], keys) -> Optional[str]:
     for k in keys:
@@ -70,6 +79,7 @@ def _pick(labels: Dict[str, str], keys) -> Optional[str]:
         if v:
             return v
     return None
+
 
 def _time_interval(duration_sec: int) -> monitoring_v3.TimeInterval:
     now = time.time()
@@ -82,6 +92,7 @@ def _time_interval(duration_sec: int) -> monitoring_v3.TimeInterval:
         }
     )
 
+
 def _make_rate_aggregation(step_sec: int) -> monitoring_v3.Aggregation:
     return monitoring_v3.Aggregation(
         {
@@ -91,9 +102,15 @@ def _make_rate_aggregation(step_sec: int) -> monitoring_v3.Aggregation:
         }
     )
 
-def _list_ts(client: monitoring_v3.MetricServiceClient, project_name: str, metric_type: str,
-             interval: monitoring_v3.TimeInterval, view=monitoring_v3.ListTimeSeriesRequest.TimeSeriesView.FULL,
-             aggregation: Optional[monitoring_v3.Aggregation] = None):
+
+def _list_ts(
+    client: monitoring_v3.MetricServiceClient,
+    project_name: str,
+    metric_type: str,
+    interval: monitoring_v3.TimeInterval,
+    view=monitoring_v3.ListTimeSeriesRequest.TimeSeriesView.FULL,
+    aggregation: Optional[monitoring_v3.Aggregation] = None,
+):
     req = {
         "name": project_name,
         "filter": f'metric.type = "{metric_type}"',
@@ -104,7 +121,10 @@ def _list_ts(client: monitoring_v3.MetricServiceClient, project_name: str, metri
         req["aggregation"] = aggregation
     return list(client.list_time_series(request=req))
 
-def _ensure_node_entry(table: Dict[str, Dict[str, Dict[str, Any]]], inst_key: str, node_id: str) -> Dict[str, Any]:
+
+def _ensure_node_entry(
+    table: Dict[str, Dict[str, Dict[str, Any]]], inst_key: str, node_id: str
+) -> Dict[str, Any]:
     if inst_key not in table:
         table[inst_key] = {}
     if node_id not in table[inst_key]:
@@ -116,12 +136,13 @@ def _ensure_node_entry(table: Dict[str, Dict[str, Dict[str, Any]]], inst_key: st
             "NodeType": "",
             "Region": "",
             "Zone": "",
-            "Project ID": "",   # filled later
-            "InstanceId": "",   # full resource name if available
-            "InstanceType": "", # Redis | Valkey | Redis Cluster
-            "points": {},       # timestamp -> {cmd: rate}
+            "Project ID": "",  # filled later
+            "InstanceId": "",  # full resource name if available
+            "InstanceType": "",  # Redis | Valkey | Redis Cluster
+            "points": {},  # timestamp -> {cmd: rate}
         }
     return table[inst_key][node_id]
+
 
 def _accumulate_commands(results, table, product_name: str, project_id: str):
     """
@@ -132,13 +153,20 @@ def _accumulate_commands(results, table, product_name: str, project_id: str):
         mlabels = dict(ts.metric.labels)
 
         # Identify instance/cluster id & node
-        inst_key = rlabels.get("instance_id") or rlabels.get("cluster_id") or rlabels.get("resource_name") or "unknown"
+        inst_key = (
+            rlabels.get("instance_id")
+            or rlabels.get("cluster_id")
+            or rlabels.get("resource_name")
+            or "unknown"
+        )
         node_id = rlabels.get("node_id") or rlabels.get("shard_id") or "unknown"
         entry = _ensure_node_entry(table, inst_key, node_id)
 
         # Fill common attributes
         entry["Project ID"] = project_id
-        entry["InstanceId"] = rlabels.get("instance_id") or rlabels.get("cluster_id") or ""
+        entry["InstanceId"] = (
+            rlabels.get("instance_id") or rlabels.get("cluster_id") or ""
+        )
         entry["Region"] = _pick(rlabels, REGION_LABELS) or entry["Region"]
         entry["Zone"] = _pick(rlabels, ZONE_LABELS) or entry["Zone"]
         entry["NodeType"] = _pick(rlabels, NODETYPE_LABELS) or entry["NodeType"]
@@ -146,7 +174,11 @@ def _accumulate_commands(results, table, product_name: str, project_id: str):
         # Node role if provided (e.g., 'primary'/'replica')
         role = mlabels.get("role") or rlabels.get("role") or ""
         if role:
-            entry["NodeRole"] = "Master" if role == "primary" else ("Replica" if role == "replica" else role)
+            entry["NodeRole"] = (
+                "Master"
+                if role == "primary"
+                else ("Replica" if role == "replica" else role)
+            )
 
         # Instance type label
         entry["InstanceType"] = product_name
@@ -178,6 +210,7 @@ def _accumulate_commands(results, table, product_name: str, project_id: str):
                     pv = 0.0
             entry["points"][t][cmd] = pv
 
+
 def _apply_processed_categories(table):
     """
     For each node entry that has points, compute processed per-timestamp categories using
@@ -194,10 +227,16 @@ def _apply_processed_categories(table):
             if "points" in entry:
                 del entry["points"]
 
+
 def _attach_memory_usage(results, table, key_name="BytesUsedForCache"):
     for ts in results:
         rlabels = dict(ts.resource.labels)
-        inst_key = rlabels.get("instance_id") or rlabels.get("cluster_id") or rlabels.get("resource_name") or "unknown"
+        inst_key = (
+            rlabels.get("instance_id")
+            or rlabels.get("cluster_id")
+            or rlabels.get("resource_name")
+            or "unknown"
+        )
         node_id = rlabels.get("node_id") or rlabels.get("shard_id") or "unknown"
         if inst_key not in table or node_id not in table[inst_key]:
             _ensure_node_entry(table, inst_key, node_id)
@@ -217,12 +256,18 @@ def _attach_memory_usage(results, table, key_name="BytesUsedForCache"):
         prev = entry.get(key_name, 0)
         entry[key_name] = max(prev, maxv)
 
+
 def _attach_capacity_scalar(results, table, key_name="MaxMemory"):
     """Attach a capacity scalar (e.g., memory size); applies to all nodes within the instance/cluster."""
     cap_by_inst = defaultdict(int)
     for ts in results:
         rlabels = dict(ts.resource.labels)
-        inst_key = rlabels.get("instance_id") or rlabels.get("cluster_id") or rlabels.get("resource_name") or "unknown"
+        inst_key = (
+            rlabels.get("instance_id")
+            or rlabels.get("cluster_id")
+            or rlabels.get("resource_name")
+            or "unknown"
+        )
         v_max = 0
         for point in ts.points:
             try:
@@ -242,6 +287,7 @@ def _attach_capacity_scalar(results, table, key_name="MaxMemory"):
             for node_id in nodes:
                 nodes[node_id][key_name] = cap_by_inst[inst_key]
 
+
 def _flatten_rows(table, project_id: str, instance_type: str) -> List[Dict[str, Any]]:
     rows = []
     for inst_key, nodes in table.items():
@@ -254,8 +300,15 @@ def _flatten_rows(table, project_id: str, instance_type: str) -> List[Dict[str, 
             rows.append(row)
     return rows
 
-def collect_for_product(client, project_id: str, duration: int, step: int,
-                        metric_map: Dict[str, str], instance_type_label: str) -> List[Dict[str, Any]]:
+
+def collect_for_product(
+    client,
+    project_id: str,
+    duration: int,
+    step: int,
+    metric_map: Dict[str, str],
+    instance_type_label: str,
+) -> List[Dict[str, Any]]:
     project_name = f"projects/{project_id}"
     interval = _time_interval(duration)
     agg = _make_rate_aggregation(step)
@@ -264,9 +317,14 @@ def collect_for_product(client, project_id: str, duration: int, step: int,
 
     # Commands (primary discovery)
     try:
-        cmd_results = _list_ts(client, project_name, metric_map["commands"], interval,
-                               view=monitoring_v3.ListTimeSeriesRequest.TimeSeriesView.FULL,
-                               aggregation=agg)
+        cmd_results = _list_ts(
+            client,
+            project_name,
+            metric_map["commands"],
+            interval,
+            view=monitoring_v3.ListTimeSeriesRequest.TimeSeriesView.FULL,
+            aggregation=agg,
+        )
     except Exception:
         cmd_results = []
     _accumulate_commands(cmd_results, table, instance_type_label, project_id)
@@ -274,7 +332,9 @@ def collect_for_product(client, project_id: str, duration: int, step: int,
     # If nothing found, discover via memory usage series (so we still emit rows)
     if not table:
         try:
-            mem_results = _list_ts(client, project_name, metric_map["memory_usage"], interval)
+            mem_results = _list_ts(
+                client, project_name, metric_map["memory_usage"], interval
+            )
         except Exception:
             mem_results = []
         _attach_memory_usage(mem_results, table)
@@ -285,7 +345,9 @@ def collect_for_product(client, project_id: str, duration: int, step: int,
 
     # Memory usage (BytesUsedForCache)
     try:
-        mem_results = _list_ts(client, project_name, metric_map["memory_usage"], interval)
+        mem_results = _list_ts(
+            client, project_name, metric_map["memory_usage"], interval
+        )
         _attach_memory_usage(mem_results, table)
     except Exception:
         pass
@@ -303,13 +365,30 @@ def collect_for_product(client, project_id: str, duration: int, step: int,
     # Flatten to rows
     return _flatten_rows(table, project_id, instance_type_label)
 
+
 def main():
-    parser = argparse.ArgumentParser(description="Export Memorystore metrics for Redis, Valkey and Redis Cluster to CSV (using only Cloud Monitoring).")
+    parser = argparse.ArgumentParser(
+        description="Export Memorystore metrics for Redis, Valkey and Redis Cluster to CSV (using only Cloud Monitoring)."
+    )
     parser.add_argument("--project", required=True, help="GCP Project ID")
-    parser.add_argument("--credentials", required=True, help="Path to service account JSON with monitoring.viewer")
+    parser.add_argument(
+        "--credentials",
+        required=True,
+        help="Path to service account JSON with monitoring.viewer",
+    )
     parser.add_argument("--out", required=True, help="Output CSV file path")
-    parser.add_argument("--duration", type=int, default=604800, help="Lookback window in seconds (default 7 days)")
-    parser.add_argument("--step", type=int, default=60, help="Alignment step in seconds for rate metrics (default 60)")
+    parser.add_argument(
+        "--duration",
+        type=int,
+        default=604800,
+        help="Lookback window in seconds (default 7 days)",
+    )
+    parser.add_argument(
+        "--step",
+        type=int,
+        default=60,
+        help="Alignment step in seconds for rate metrics (default 60)",
+    )
     args = parser.parse_args()
 
     # Auth
@@ -324,7 +403,9 @@ def main():
         (VALKEY_METRICS, "Valkey"),
         (CLUSTER_METRICS, "Redis Cluster"),
     ):
-        rows = collect_for_product(client, args.project, args.duration, args.step, metric_map, label)
+        rows = collect_for_product(
+            client, args.project, args.duration, args.step, metric_map, label
+        )
         all_rows.extend(rows)
 
     if not all_rows:
@@ -332,9 +413,18 @@ def main():
 
     # Build header: union of keys across rows, with useful columns first
     base_order = [
-        "Source", "Project ID", "InstanceType",
-        "ClusterId", "InstanceId", "NodeId", "NodeRole", "NodeType", "Region", "Zone",
-        "BytesUsedForCache", "MaxMemory",
+        "Source",
+        "Project ID",
+        "InstanceType",
+        "ClusterId",
+        "InstanceId",
+        "NodeId",
+        "NodeRole",
+        "NodeType",
+        "Region",
+        "Zone",
+        "BytesUsedForCache",
+        "MaxMemory",
     ]
     category_keys = []
     for row in all_rows:
@@ -352,6 +442,7 @@ def main():
             writer.writerow(row)
 
     print(f"Wrote {len(all_rows)} rows to {args.out}")
+
 
 if __name__ == "__main__":
     sys.exit(main())
