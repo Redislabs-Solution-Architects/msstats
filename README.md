@@ -47,18 +47,16 @@ Execute
 
 ```
 # To use the copied service-account:
-python msstats.py
+python memorystore.py --project YOUR_PROJECT_ID --credentials /path/to/sa.json --out /path/to/out.csv
 
-# or, to use the `gcloud` user (then, you _need_ to give a precise project):
-python3 msstats.py --user-account --project-id my-gcp-project
 ```
 
-This generates a file named <your project>.xlsx. You need to get that file and send it to Redis.
+This generates a csv file. You need to get that file and send it to Redis.
 By default, it uses steps of 60 seconds and a period of 7 days (604800 seconds).
 You can set different values as follows:
 
 ````
-python msstats.py --duration 1800 --step 300
+python memorystore.py --project YOUR_PROJECT_ID --credentials /path/to/sa.json --out /path/to/out.csv --duration 1800 --step 300
 ````
 
 This can help solving issue like:
@@ -86,6 +84,8 @@ For example,
 ```
 ./grant_sa_monitoring_viewer.sh gmflau-sa@gcp-dev-day-nyc.iam.gserviceaccount.com
 ```
+
+Edit the `batch_run_msstats.sh` file to set the right path to the credentials file.
 
 Execute
 
