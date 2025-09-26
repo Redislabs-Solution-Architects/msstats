@@ -109,7 +109,7 @@ To collect metrics and information for Redis standalone instances, execute:
 To collect metrics and information for Redis, Valkey and Redis Cluster instances, execute:
 
 ```
-./batch_run_msstats.sh
+./batch_run_memorystore.sh
 ```
 
 
