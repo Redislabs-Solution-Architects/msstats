@@ -83,6 +83,14 @@ def _pick(labels: Dict[str, str], keys) -> Optional[str]:
     return None
 
 
+def _point_value(point, default=0):
+    """Extract a numeric value from a GCP monitoring point, handling both int64 and double types."""
+    try:
+        return point.value.int64_value or point.value.double_value
+    except Exception:
+        return default
+
+
 def _time_interval(duration_sec: int) -> monitoring_v3.TimeInterval:
     now = time.time()
     seconds = int(now)
@@ -201,16 +209,7 @@ def _accumulate_commands(results, table, product_name: str, project_id: str):
             t = point.interval.start_time.timestamp()
             if t not in entry["points"]:
                 entry["points"][t] = {}
-            # Support both int/double values
-            pv = 0.0
-            try:
-                pv = point.value.double_value
-            except Exception:
-                try:
-                    pv = float(point.value.int64_value)
-                except Exception:
-                    pv = 0.0
-            entry["points"][t][cmd] = pv
+            entry["points"][t][cmd] = float(_point_value(point, default=0.0))
 
 
 def _apply_processed_categories(table):
@@ -246,13 +245,7 @@ def _attach_memory_usage(results, table, key_name="BytesUsedForCache"):
         # take the max usage observed
         maxv = 0
         for point in ts.points:
-            try:
-                v = int(point.value.int64_value)
-            except Exception:
-                try:
-                    v = int(point.value.double_value)
-                except Exception:
-                    v = 0
+            v = int(_point_value(point))
             if v > maxv:
                 maxv = v
         prev = entry.get(key_name, 0)
@@ -272,13 +265,7 @@ def _attach_capacity_scalar(results, table, key_name="MaxMemory"):
         )
         v_max = 0
         for point in ts.points:
-            try:
-                v = int(point.value.int64_value)
-            except Exception:
-                try:
-                    v = int(point.value.double_value)
-                except Exception:
-                    v = 0
+            v = int(_point_value(point))
             if v > v_max:
                 v_max = v
         if v_max > cap_by_inst[inst_key]:
@@ -305,19 +292,13 @@ def _attach_node_role(results, table):
         inst_key = rlabels.get("instance_id") or "unknown"
         node_id = rlabels.get("node_id") or "unknown"
         if inst_key not in table or node_id not in table[inst_key]:
-            continue  # only update nodes we already know about
-        entry = table[inst_key][node_id]
-        # Take the latest point value (first in the list)
-        for point in ts.points:
-            try:
-                role_val = int(point.value.int64_value)
-            except Exception:
-                try:
-                    role_val = int(point.value.double_value)
-                except Exception:
-                    continue
-            entry["NodeRole"] = "Master" if role_val == 1 else "Replica"
-            break  # first point is latest
+            continue
+
+        if not ts.points:
+            continue
+
+        role_val = int(_point_value(ts.points[0]))
+        table[inst_key][node_id]["NodeRole"] = "Master" if role_val == 1 else "Replica"
 
 
 def _flatten_rows(table, project_id: str, instance_type: str) -> List[Dict[str, Any]]:
