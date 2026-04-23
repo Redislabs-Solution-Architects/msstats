@@ -16,6 +16,13 @@ from msstats import (
     create_workbooks,
 )
 
+from memorystore import (
+    _resolve_inst_key,
+    _ensure_node_entry,
+    _attach_memory_usage,
+    _attach_capacity_scalar,
+)
+
 
 class TestMSSStats(unittest.TestCase):
     """Test suite for msstats utility functions"""
@@ -467,6 +474,112 @@ class TestMSStatsIntegration(unittest.TestCase):
         # Should return None for missing files
         result = get_project_from_service_account_and_authenticate(nonexistent_file)
         self.assertIsNone(result)
+
+
+class TestMemorystore(unittest.TestCase):
+    """Test suite for memorystore.py functions"""
+
+    def test_resolve_inst_key_redis_standalone_full_path(self):
+        """Redis standalone returns full GCP path via instance_id — should be used as-is"""
+        rlabels = {
+            "instance_id": "projects/my-project/locations/us-central1/instances/my-redis",
+            "node_id": "node-0",
+        }
+        result = _resolve_inst_key(rlabels, "my-project")
+        self.assertEqual(
+            result,
+            "projects/my-project/locations/us-central1/instances/my-redis",
+        )
+
+    def test_resolve_inst_key_valkey_short_name_prefixed(self):
+        """Valkey returns short name via instance_id — should be prefixed with project_id"""
+        rlabels = {"instance_id": "memorystore-valkey", "node_id": "abc123"}
+        result = _resolve_inst_key(rlabels, "my-project")
+        self.assertEqual(result, "my-project/memorystore-valkey")
+
+    def test_resolve_inst_key_redis_cluster_short_name_prefixed(self):
+        """Redis Cluster returns short name via cluster_id — should be prefixed"""
+        rlabels = {"cluster_id": "memorystore-redis-cluster", "shard_id": "xyz789"}
+        result = _resolve_inst_key(rlabels, "my-project")
+        self.assertEqual(result, "my-project/memorystore-redis-cluster")
+
+    def test_resolve_inst_key_no_project_id(self):
+        """When project_id is empty, return raw id without prefix"""
+        rlabels = {"instance_id": "memorystore-valkey"}
+        result = _resolve_inst_key(rlabels, "")
+        self.assertEqual(result, "memorystore-valkey")
+
+    def test_resolve_inst_key_fallback_to_unknown(self):
+        """When no identifiers are present, return 'unknown'"""
+        rlabels = {"region": "us-central1"}
+        result = _resolve_inst_key(rlabels, "my-project")
+        self.assertEqual(result, "my-project/unknown")
+
+    def test_resolve_inst_key_resource_name_fallback(self):
+        """Falls back to resource_name when instance_id and cluster_id are absent"""
+        rlabels = {"resource_name": "some-resource"}
+        result = _resolve_inst_key(rlabels, "my-project")
+        self.assertEqual(result, "my-project/some-resource")
+
+    def test_resolve_inst_key_no_collision_across_projects(self):
+        """Same short name in different projects produces different keys"""
+        rlabels = {"instance_id": "memorystore-valkey"}
+        key_a = _resolve_inst_key(rlabels, "project-a")
+        key_b = _resolve_inst_key(rlabels, "project-b")
+        self.assertNotEqual(key_a, key_b)
+        self.assertEqual(key_a, "project-a/memorystore-valkey")
+        self.assertEqual(key_b, "project-b/memorystore-valkey")
+
+    def test_resolve_inst_key_redis_standalone_same_name_different_projects(self):
+        """Redis standalone with same instance name in different projects stays unique"""
+        rlabels_a = {
+            "instance_id": "projects/project-a/locations/us-central1/instances/redis-prod"
+        }
+        rlabels_b = {
+            "instance_id": "projects/project-b/locations/us-central1/instances/redis-prod"
+        }
+        key_a = _resolve_inst_key(rlabels_a, "project-a")
+        key_b = _resolve_inst_key(rlabels_b, "project-b")
+        self.assertNotEqual(key_a, key_b)
+
+    def test_attach_memory_usage_uses_resolve_inst_key(self):
+        """_attach_memory_usage should create entries with project-prefixed keys for short names"""
+        table = {}
+        mock_ts = MagicMock()
+        mock_ts.resource.labels = {
+            "instance_id": "memorystore-valkey",
+            "node_id": "abc123",
+        }
+        mock_point = MagicMock()
+        mock_point.value.int64_value = 5000000
+        mock_point.value.double_value = 0
+        mock_ts.points = [mock_point]
+
+        _attach_memory_usage([mock_ts], table, project_id="my-project")
+
+        self.assertIn("my-project/memorystore-valkey", table)
+        self.assertNotIn("memorystore-valkey", table)
+
+    def test_attach_capacity_scalar_uses_resolve_inst_key(self):
+        """_attach_capacity_scalar should match entries using project-prefixed keys"""
+        table = {"my-project/memorystore-valkey": {"abc123": {"MaxMemory": 0}}}
+        mock_ts = MagicMock()
+        mock_ts.resource.labels = {
+            "instance_id": "memorystore-valkey",
+            "node_id": "abc123",
+        }
+        mock_point = MagicMock()
+        mock_point.value.int64_value = 10000000
+        mock_point.value.double_value = 0
+        mock_ts.points = [mock_point]
+
+        _attach_capacity_scalar(
+            [mock_ts], table, project_id="my-project", key_name="MaxMemory"
+        )
+
+        self.assertEqual(
+            table["my-project/memorystore-valkey"]["abc123"]["MaxMemory"], 10000000
+        )
 
 
 if __name__ == "__main__":
