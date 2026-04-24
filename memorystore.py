@@ -83,6 +83,26 @@ def _pick(labels: Dict[str, str], keys) -> Optional[str]:
     return None
 
 
+def _resolve_inst_key(rlabels: dict, project_id: str = "") -> str:
+    """Build a globally unique instance key.
+
+    Redis standalone instance_id is a full GCP path (projects/…/instances/name)
+    which is already globally unique. Valkey and Redis Cluster return short names
+    via instance_id or cluster_id, so we prefix with project_id to avoid
+    collisions across projects.
+    """
+    raw_id = (
+        rlabels.get("instance_id")
+        or rlabels.get("cluster_id")
+        or rlabels.get("resource_name")
+        or "unknown"
+    )
+    # Full GCP path (starts with "projects/") is already globally unique
+    if raw_id.startswith("projects/"):
+        return raw_id
+    return f"{project_id}/{raw_id}" if project_id else raw_id
+
+
 def _point_value(point, default=0):
     """Extract a numeric value from a GCP monitoring point, handling both int64 and double types."""
     try:
@@ -163,12 +183,7 @@ def _accumulate_commands(results, table, product_name: str, project_id: str):
         mlabels = dict(ts.metric.labels)
 
         # Identify instance/cluster id & node
-        inst_key = (
-            rlabels.get("instance_id")
-            or rlabels.get("cluster_id")
-            or rlabels.get("resource_name")
-            or "unknown"
-        )
+        inst_key = _resolve_inst_key(rlabels, project_id)
         node_id = rlabels.get("node_id") or rlabels.get("shard_id") or "unknown"
         entry = _ensure_node_entry(table, inst_key, node_id)
 
@@ -229,15 +244,10 @@ def _apply_processed_categories(table):
                 del entry["points"]
 
 
-def _attach_memory_usage(results, table, key_name="BytesUsedForCache"):
+def _attach_memory_usage(results, table, project_id="", key_name="BytesUsedForCache"):
     for ts in results:
         rlabels = dict(ts.resource.labels)
-        inst_key = (
-            rlabels.get("instance_id")
-            or rlabels.get("cluster_id")
-            or rlabels.get("resource_name")
-            or "unknown"
-        )
+        inst_key = _resolve_inst_key(rlabels, project_id)
         node_id = rlabels.get("node_id") or rlabels.get("shard_id") or "unknown"
         if inst_key not in table or node_id not in table[inst_key]:
             _ensure_node_entry(table, inst_key, node_id)
@@ -252,17 +262,12 @@ def _attach_memory_usage(results, table, key_name="BytesUsedForCache"):
         entry[key_name] = max(prev, maxv)
 
 
-def _attach_capacity_scalar(results, table, key_name="MaxMemory"):
+def _attach_capacity_scalar(results, table, project_id="", key_name="MaxMemory"):
     """Attach a capacity scalar (e.g., memory size); applies to all nodes within the instance/cluster."""
     cap_by_inst = defaultdict(int)
     for ts in results:
         rlabels = dict(ts.resource.labels)
-        inst_key = (
-            rlabels.get("instance_id")
-            or rlabels.get("cluster_id")
-            or rlabels.get("resource_name")
-            or "unknown"
-        )
+        inst_key = _resolve_inst_key(rlabels, project_id)
         v_max = 0
         for point in ts.points:
             v = int(_point_value(point))
@@ -277,7 +282,7 @@ def _attach_capacity_scalar(results, table, key_name="MaxMemory"):
                 nodes[node_id][key_name] = cap_by_inst[inst_key]
 
 
-def _attach_node_role(results, table):
+def _attach_node_role(results, table, project_id=""):
     """Set NodeRole using the dedicated replication/role metric.
 
     The 'role' label on commands/calls is metadata — not its purpose to report
@@ -289,8 +294,8 @@ def _attach_node_role(results, table):
     """
     for ts in results:
         rlabels = dict(ts.resource.labels)
-        inst_key = rlabels.get("instance_id") or "unknown"
-        node_id = rlabels.get("node_id") or "unknown"
+        inst_key = _resolve_inst_key(rlabels, project_id)
+        node_id = rlabels.get("node_id") or rlabels.get("shard_id") or "unknown"
         if inst_key not in table or node_id not in table[inst_key]:
             continue
 
@@ -350,7 +355,7 @@ def collect_for_product(
             )
         except Exception:
             mem_results = []
-        _attach_memory_usage(mem_results, table)
+        _attach_memory_usage(mem_results, table, project_id=project_id)
         for inst_key, nodes in table.items():
             for node_id, entry in nodes.items():
                 entry["InstanceType"] = instance_type_label
@@ -361,14 +366,16 @@ def collect_for_product(
         mem_results = _list_ts(
             client, project_name, metric_map["memory_usage"], interval
         )
-        _attach_memory_usage(mem_results, table)
+        _attach_memory_usage(mem_results, table, project_id=project_id)
     except Exception:
         pass
 
     # Capacity (MaxMemory) - instance/cluster level
     try:
         cap_results = _list_ts(client, project_name, metric_map["max_memory"], interval)
-        _attach_capacity_scalar(cap_results, table, key_name="MaxMemory")
+        _attach_capacity_scalar(
+            cap_results, table, project_id=project_id, key_name="MaxMemory"
+        )
     except Exception:
         pass
 
@@ -378,7 +385,7 @@ def collect_for_product(
             role_results = _list_ts(
                 client, project_name, metric_map["replication_role"], interval
             )
-            _attach_node_role(role_results, table)
+            _attach_node_role(role_results, table, project_id=project_id)
         except Exception:
             pass
 
