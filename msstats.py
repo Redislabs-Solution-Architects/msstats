@@ -867,7 +867,7 @@ def main():
         help="Duration of the metric window in seconds. Default is 604800 (7 days).",
     )
 
-    (options, _) = parser.parse_args()
+    options, _ = parser.parse_args()
 
     if not os.path.isdir(options.outDir):
         os.makedirs(options.outDir)

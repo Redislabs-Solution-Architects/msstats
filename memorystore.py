@@ -48,6 +48,7 @@ REDIS_METRICS = {
     "commands": "redis.googleapis.com/commands/calls",
     "memory_usage": "redis.googleapis.com/stats/memory/usage",
     "max_memory": "redis.googleapis.com/stats/memory/maxmemory",
+    "replication_role": "redis.googleapis.com/replication/role",
 }
 # Valkey (Memorystore for Valkey) - use node-level for commands & usage; instance-level for size.
 VALKEY_METRICS = {
@@ -100,6 +101,14 @@ def _resolve_inst_key(rlabels: dict, project_id: str = "") -> str:
     if raw_id.startswith("projects/"):
         return raw_id
     return f"{project_id}/{raw_id}" if project_id else raw_id
+
+
+def _point_value(point, default=0):
+    """Extract a numeric value from a GCP monitoring point, handling both int64 and double types."""
+    try:
+        return point.value.int64_value or point.value.double_value
+    except Exception:
+        return default
 
 
 def _time_interval(duration_sec: int) -> monitoring_v3.TimeInterval:
@@ -215,16 +224,7 @@ def _accumulate_commands(results, table, product_name: str, project_id: str):
             t = point.interval.start_time.timestamp()
             if t not in entry["points"]:
                 entry["points"][t] = {}
-            # Support both int/double values
-            pv = 0.0
-            try:
-                pv = point.value.double_value
-            except Exception:
-                try:
-                    pv = float(point.value.int64_value)
-                except Exception:
-                    pv = 0.0
-            entry["points"][t][cmd] = pv
+            entry["points"][t][cmd] = float(_point_value(point, default=0.0))
 
 
 def _apply_processed_categories(table):
@@ -255,13 +255,7 @@ def _attach_memory_usage(results, table, project_id="", key_name="BytesUsedForCa
         # take the max usage observed
         maxv = 0
         for point in ts.points:
-            try:
-                v = int(point.value.int64_value)
-            except Exception:
-                try:
-                    v = int(point.value.double_value)
-                except Exception:
-                    v = 0
+            v = int(_point_value(point))
             if v > maxv:
                 maxv = v
         prev = entry.get(key_name, 0)
@@ -276,13 +270,7 @@ def _attach_capacity_scalar(results, table, project_id="", key_name="MaxMemory")
         inst_key = _resolve_inst_key(rlabels, project_id)
         v_max = 0
         for point in ts.points:
-            try:
-                v = int(point.value.int64_value)
-            except Exception:
-                try:
-                    v = int(point.value.double_value)
-                except Exception:
-                    v = 0
+            v = int(_point_value(point))
             if v > v_max:
                 v_max = v
         if v_max > cap_by_inst[inst_key]:
@@ -292,6 +280,30 @@ def _attach_capacity_scalar(results, table, project_id="", key_name="MaxMemory")
         if inst_key in cap_by_inst:
             for node_id in nodes:
                 nodes[node_id][key_name] = cap_by_inst[inst_key]
+
+
+def _attach_node_role(results, table, project_id=""):
+    """Set NodeRole using the dedicated replication/role metric.
+
+    The 'role' label on commands/calls is metadata — not its purpose to report
+    node role — and has been observed returning 'replica' for both nodes on
+    Standard Tier instances (GTI-608, ~93 affected clusters).
+
+    replication/role is the GCP-designated metric for this: 1 = primary, 0 = replica.
+    See: https://cloud.google.com/memorystore/docs/redis/supported-monitoring-metrics
+    """
+    for ts in results:
+        rlabels = dict(ts.resource.labels)
+        inst_key = _resolve_inst_key(rlabels, project_id)
+        node_id = rlabels.get("node_id") or rlabels.get("shard_id") or "unknown"
+        if inst_key not in table or node_id not in table[inst_key]:
+            continue
+
+        if not ts.points:
+            continue
+
+        role_val = int(_point_value(ts.points[0]))
+        table[inst_key][node_id]["NodeRole"] = "Master" if role_val == 1 else "Replica"
 
 
 def _flatten_rows(table, project_id: str, instance_type: str) -> List[Dict[str, Any]]:
@@ -366,6 +378,16 @@ def collect_for_product(
         )
     except Exception:
         pass
+
+    # Node role (Redis only - uses authoritative replication/role metric)
+    if "replication_role" in metric_map:
+        try:
+            role_results = _list_ts(
+                client, project_name, metric_map["replication_role"], interval
+            )
+            _attach_node_role(role_results, table, project_id=project_id)
+        except Exception:
+            pass
 
     # Compute command categories
     _apply_processed_categories(table)
