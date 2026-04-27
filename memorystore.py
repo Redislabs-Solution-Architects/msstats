@@ -24,9 +24,10 @@ Optional:
 import argparse
 import csv
 import os
+import re
 import sys
 import time
-from typing import Dict, List, Optional, Any
+from typing import Dict, List, Optional, Any, Tuple
 from collections import defaultdict
 
 from google.oauth2 import service_account
@@ -73,6 +74,28 @@ NODETYPE_LABELS = (
     "service_tier",
     "instance_type",
 )
+
+_GCP_ZONE_RE = re.compile(r"^([a-z]+(?:-[a-z]+)+\d+)-[a-z]$")
+
+
+def _normalize_location(value: Optional[str]) -> Tuple[str, str]:
+    """Split a GCP location label into its (region, zone) pair.
+
+    Encodes GCP's location hierarchy: a zone is always
+    ``<region>-<letter>`` (e.g. ``us-central1-a`` -> region
+    ``us-central1``). When the input matches that shape the parent
+    region is returned as the first element and the original value as
+    the zone. Region-shaped inputs (``us-east4``) and any non-matching
+    string (``""``, ``"global"``, multi-region aliases like ``"us"``)
+    are passed through as the region with an empty zone, so callers
+    never silently lose information.
+    """
+    if not value:
+        return ("", "")
+    match = _GCP_ZONE_RE.match(value)
+    if match:
+        return (match.group(1), value)
+    return (value, "")
 
 
 def _pick(labels: Dict[str, str], keys) -> Optional[str]:
@@ -192,8 +215,9 @@ def _accumulate_commands(results, table, product_name: str, project_id: str):
         entry["InstanceId"] = (
             rlabels.get("instance_id") or rlabels.get("cluster_id") or ""
         )
-        entry["Region"] = _pick(rlabels, REGION_LABELS) or entry["Region"]
-        entry["Zone"] = _pick(rlabels, ZONE_LABELS) or entry["Zone"]
+        region, zone_from_loc = _normalize_location(_pick(rlabels, REGION_LABELS))
+        entry["Region"] = region or entry["Region"]
+        entry["Zone"] = _pick(rlabels, ZONE_LABELS) or zone_from_loc or entry["Zone"]
         entry["NodeType"] = _pick(rlabels, NODETYPE_LABELS) or entry["NodeType"]
 
         # Node role if provided (e.g., 'primary'/'replica')
