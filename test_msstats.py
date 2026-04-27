@@ -20,6 +20,8 @@ from memorystore import (
     _resolve_inst_key,
     _attach_memory_usage,
     _attach_capacity_scalar,
+    _accumulate_commands,
+    _normalize_location,
 )
 
 
@@ -555,6 +557,82 @@ class TestMemorystore(unittest.TestCase):
         self.assertEqual(
             table["my-project/memorystore-valkey"]["abc123"]["MaxMemory"], 10000000
         )
+
+    def test_normalize_location_zone_form(self):
+        """GCP zone string is split into (region, zone)"""
+        self.assertEqual(
+            _normalize_location("us-central1-a"),
+            ("us-central1", "us-central1-a"),
+        )
+
+    def test_normalize_location_region_form(self):
+        """Region-shaped string is passed through as region, zone blank"""
+        self.assertEqual(_normalize_location("us-east4"), ("us-east4", ""))
+
+    def test_normalize_location_multi_segment_zone(self):
+        """Multi-word region prefix (e.g. asia-northeast1) is handled"""
+        self.assertEqual(
+            _normalize_location("asia-northeast1-c"),
+            ("asia-northeast1", "asia-northeast1-c"),
+        )
+
+    def test_normalize_location_empty_and_none(self):
+        """Empty string and None return ('', '')"""
+        self.assertEqual(_normalize_location(""), ("", ""))
+        self.assertEqual(_normalize_location(None), ("", ""))
+
+    def _make_cmd_ts(self, resource_labels, cmd="GET"):
+        mock_ts = MagicMock()
+        mock_ts.resource.labels = resource_labels
+        mock_ts.metric.labels = {"cmd": cmd}
+        mock_point = MagicMock()
+        mock_point.interval.start_time.timestamp.return_value = 1000.0
+        mock_point.value.int64_value = 1
+        mock_point.value.double_value = 0
+        mock_ts.points = [mock_point]
+        return mock_ts
+
+    def test_accumulate_commands_cluster_location_splits_into_region_and_zone(self):
+        """Redis Cluster: location=<zone> must split into Region + Zone"""
+        table = {}
+        ts = self._make_cmd_ts(
+            {"cluster_id": "c1", "shard_id": "s0", "location": "us-central1-a"}
+        )
+        _accumulate_commands([ts], table, "Redis Cluster", "proj")
+        entry = table["proj/c1"]["s0"]
+        self.assertEqual(entry["Region"], "us-central1")
+        self.assertEqual(entry["Zone"], "us-central1-a")
+
+    def test_accumulate_commands_standalone_keeps_region_and_explicit_zone(self):
+        """Redis standalone: explicit region + zone labels survive untouched"""
+        table = {}
+        ts = self._make_cmd_ts(
+            {
+                "instance_id": "projects/proj/locations/us-central1/instances/r1",
+                "node_id": "n0",
+                "region": "us-central1",
+                "zone": "us-central1-a",
+            }
+        )
+        _accumulate_commands([ts], table, "Redis", "proj")
+        entry = table["projects/proj/locations/us-central1/instances/r1"]["n0"]
+        self.assertEqual(entry["Region"], "us-central1")
+        self.assertEqual(entry["Zone"], "us-central1-a")
+
+    def test_accumulate_commands_standalone_region_only_leaves_zone_blank(self):
+        """Redis standalone: region-only label leaves Zone blank (regex no match)"""
+        table = {}
+        ts = self._make_cmd_ts(
+            {
+                "instance_id": "projects/proj/locations/us-east4/instances/r1",
+                "node_id": "n0",
+                "region": "us-east4",
+            }
+        )
+        _accumulate_commands([ts], table, "Redis", "proj")
+        entry = table["projects/proj/locations/us-east4/instances/r1"]["n0"]
+        self.assertEqual(entry["Region"], "us-east4")
+        self.assertEqual(entry["Zone"], "")
 
 
 if __name__ == "__main__":
