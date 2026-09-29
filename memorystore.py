@@ -163,6 +163,7 @@ def _list_ts(
     interval: monitoring_v3.TimeInterval,
     view=monitoring_v3.ListTimeSeriesRequest.TimeSeriesView.FULL,
     aggregation: Optional[monitoring_v3.Aggregation] = None,
+    step: int = 60,
 ):
     req = {
         "name": project_name,
@@ -172,7 +173,7 @@ def _list_ts(
     }
     if aggregation is not None:
         req["aggregation"] = aggregation
-    return list(client.list_time_series(request=req))
+    return ms.list_time_series(client, req, step)
 
 
 def _ensure_node_entry(
@@ -343,6 +344,11 @@ def _flatten_rows(table, project_id: str, instance_type: str) -> List[Dict[str, 
     return rows
 
 
+def _report_error(errors: List[str], message: str):
+    print(message)
+    errors.append(message)
+
+
 def collect_for_product(
     client,
     project_id: str,
@@ -350,6 +356,7 @@ def collect_for_product(
     step: int,
     metric_map: Dict[str, str],
     instance_type_label: str,
+    errors: List[str],
 ) -> List[Dict[str, Any]]:
     project_name = f"projects/{project_id}"
     interval = _time_interval(duration)
@@ -366,8 +373,12 @@ def collect_for_product(
             interval,
             view=monitoring_v3.ListTimeSeriesRequest.TimeSeriesView.FULL,
             aggregation=agg,
+            step=step,
         )
-    except Exception:
+    except Exception as e:
+        _report_error(
+            errors, f"Error: could not query {instance_type_label} command metrics: {e}"
+        )
         cmd_results = []
     _accumulate_commands(cmd_results, table, instance_type_label, project_id)
 
@@ -377,7 +388,11 @@ def collect_for_product(
             mem_results = _list_ts(
                 client, project_name, metric_map["memory_usage"], interval
             )
-        except Exception:
+        except Exception as e:
+            _report_error(
+                errors,
+                f"Error: could not query {instance_type_label} memory usage: {e}",
+            )
             mem_results = []
         _attach_memory_usage(mem_results, table, project_id=project_id)
         for inst_key, nodes in table.items():
@@ -391,8 +406,10 @@ def collect_for_product(
             client, project_name, metric_map["memory_usage"], interval
         )
         _attach_memory_usage(mem_results, table, project_id=project_id)
-    except Exception:
-        pass
+    except Exception as e:
+        _report_error(
+            errors, f"Error: could not query {instance_type_label} memory usage: {e}"
+        )
 
     # Capacity (MaxMemory) - instance/cluster level
     try:
@@ -400,8 +417,10 @@ def collect_for_product(
         _attach_capacity_scalar(
             cap_results, table, project_id=project_id, key_name="MaxMemory"
         )
-    except Exception:
-        pass
+    except Exception as e:
+        _report_error(
+            errors, f"Error: could not query {instance_type_label} max memory: {e}"
+        )
 
     # Node role (Redis only - uses authoritative replication/role metric)
     if "replication_role" in metric_map:
@@ -410,8 +429,10 @@ def collect_for_product(
                 client, project_name, metric_map["replication_role"], interval
             )
             _attach_node_role(role_results, table, project_id=project_id)
-        except Exception:
-            pass
+        except Exception as e:
+            _report_error(
+                errors, f"Error: could not query {instance_type_label} node role: {e}"
+            )
 
     # Compute command categories
     _apply_processed_categories(table)
@@ -450,6 +471,7 @@ def main():
     client = monitoring_v3.MetricServiceClient(credentials=creds)
 
     all_rows: List[Dict[str, Any]] = []
+    errors: List[str] = []
 
     # Collect for each product
     for metric_map, label in (
@@ -458,7 +480,7 @@ def main():
         (CLUSTER_METRICS, "Redis Cluster"),
     ):
         rows = collect_for_product(
-            client, args.project, args.duration, args.step, metric_map, label
+            client, args.project, args.duration, args.step, metric_map, label, errors
         )
         all_rows.extend(rows)
 
@@ -496,6 +518,12 @@ def main():
             writer.writerow(row)
 
     print(f"Wrote {len(all_rows)} rows to {args.out}")
+
+    if errors:
+        print(
+            f"Completed with {len(errors)} error(s); {args.out} is missing some metrics (see errors above)."
+        )
+        return 1
 
 
 if __name__ == "__main__":
