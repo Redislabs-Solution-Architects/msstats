@@ -72,12 +72,7 @@ You can set different values as follows:
 python memorystore.py --project YOUR_PROJECT_ID --credentials /path/to/sa.json --out /path/to/out.csv --duration 1800 --step 300
 ````
 
-This can help solving issue like:
-
-```
-google.api_core.exceptions.ResourceExhausted: 429 Maximum response size of 200000000 bytes reached.
-Consider querying less data by increasing the step or interval, using more filters and aggregations, or limiting the time duration.
-```
+If a project returns more data than Cloud Monitoring allows in one response (`429 Maximum response size of 200000000 bytes reached`), both scripts automatically split the query into smaller time windows. A larger `--step` or shorter `--duration` is optional and reduces the number of requests and the run time.
 
 
 ## Running MSStats Tool in Batch Mode

@@ -4,6 +4,8 @@ import tempfile
 import json
 from unittest.mock import patch, MagicMock
 import openpyxl
+from google.api_core.exceptions import ResourceExhausted
+from google.cloud import monitoring_v3
 
 from msstats import (
     extractDatabaseName,
@@ -14,6 +16,7 @@ from msstats import (
     get_project_from_service_account_and_authenticate,
     process_google_project,
     create_workbooks,
+    list_time_series,
 )
 
 from memorystore import (
@@ -22,6 +25,9 @@ from memorystore import (
     _attach_capacity_scalar,
     _accumulate_commands,
     _normalize_location,
+    collect_for_product,
+    REDIS_METRICS,
+    main as memorystore_main,
 )
 
 
@@ -297,14 +303,8 @@ class TestMSStatsIntegration(unittest.TestCase):
             os.remove(self.service_account_file)
         os.rmdir(self.temp_dir)
 
-    @patch("msstats.monitoring_v3.MetricServiceClient")
-    def test_process_google_project_with_mock_data(self, mock_client_class):
-        """Test processing service account with mocked Google Cloud responses"""
-        # Mock the monitoring client
-        mock_client = MagicMock()
-        mock_client_class.return_value = mock_client
-
-        # Mock time series response for commands/calls
+    def _mock_command_series(self):
+        """Mock commands/calls time series for a single primary node"""
         mock_result = MagicMock()
         mock_result.resource.labels = MagicMock()
         mock_result.resource.labels.__getitem__ = MagicMock(
@@ -328,6 +328,17 @@ class TestMSStatsIntegration(unittest.TestCase):
         mock_point.value.int64_value = 100
         mock_result.points = [mock_point]
         mock_result.value_type = 2  # INT64
+        return mock_result
+
+    @patch("msstats.monitoring_v3.MetricServiceClient")
+    def test_process_google_project_with_mock_data(self, mock_client_class):
+        """Test processing service account with mocked Google Cloud responses"""
+        # Mock the monitoring client
+        mock_client = MagicMock()
+        mock_client_class.return_value = mock_client
+
+        # Mock time series response for commands/calls
+        mock_result = self._mock_command_series()
 
         # Mock memory usage response
         mock_memory_result = MagicMock()
@@ -370,6 +381,40 @@ class TestMSStatsIntegration(unittest.TestCase):
         self.assertIn("ClusterId", node_stats)
         self.assertIn("NodeRole", node_stats)
         self.assertEqual(node_stats["NodeRole"], "Master")
+
+    @patch("msstats.monitoring_v3.MetricServiceClient")
+    def test_process_google_project_returns_empty_dict_on_query_error(
+        self, mock_client_class
+    ):
+        """A failed commands query yields {} that create_workbooks can write"""
+        mock_client = MagicMock()
+        mock_client_class.return_value = mock_client
+        mock_client.list_time_series.side_effect = Exception("boom")
+
+        stats = process_google_project(self.test_project_id, duration=3600, step=60)
+
+        self.assertEqual(stats, {})
+        create_workbooks(self.temp_dir, {self.test_project_id: stats})
+        os.remove(os.path.join(self.temp_dir, f"{self.test_project_id}.xlsx"))
+
+    @patch("msstats.monitoring_v3.MetricServiceClient")
+    def test_process_google_project_memory_error_ignores_command_results(
+        self, mock_client_class
+    ):
+        """Failed memory queries must not reuse the commands query results"""
+        mock_client = MagicMock()
+        mock_client_class.return_value = mock_client
+        mock_client.list_time_series.side_effect = [
+            [self._mock_command_series()],  # commands/calls response
+            Exception("boom"),  # memory/usage response
+            Exception("boom"),  # memory/maxmemory response
+        ]
+
+        stats = process_google_project(self.test_project_id, duration=3600, step=60)
+
+        node_stats = stats["test-redis"]["node-0"]
+        self.assertNotIn("BytesUsedForCache", node_stats)
+        self.assertNotIn("MaxMemory", node_stats)
 
     def test_create_workbooks_integration(self):
         """Test creating Excel workbooks from processed data"""
@@ -475,6 +520,76 @@ class TestMSStatsIntegration(unittest.TestCase):
         # Should return None for missing files
         result = get_project_from_service_account_and_authenticate(nonexistent_file)
         self.assertIsNone(result)
+
+
+class TestListTimeSeries(unittest.TestCase):
+    """Test suite for the list_time_series splitting helper"""
+
+    START = 1700000000
+    SIZE_ERROR = "Maximum response size of 200000000 bytes reached."
+
+    def _request(self, start, end):
+        return {
+            "name": "projects/test-project",
+            "interval": monitoring_v3.TimeInterval(
+                {"start_time": {"seconds": start}, "end_time": {"seconds": end}}
+            ),
+        }
+
+    @staticmethod
+    def _window(request):
+        interval = request["interval"]
+        return (
+            int(interval.start_time.timestamp()),
+            int(interval.end_time.timestamp()),
+        )
+
+    def test_returns_results_without_splitting(self):
+        """A response within the limit is returned from a single request"""
+        client = MagicMock()
+        client.list_time_series.return_value = ["ts"]
+
+        result = list_time_series(client, self._request(self.START, self.START + 3600))
+
+        self.assertEqual(result, ["ts"])
+        client.list_time_series.assert_called_once()
+
+    def test_splits_on_step_boundaries_oldest_first(self):
+        """Oversized windows are halved on step boundaries and merged in order"""
+
+        def fake_list_time_series(request):
+            start, end = self._window(request)
+            if end - start > 1200:
+                raise ResourceExhausted(self.SIZE_ERROR)
+            return [(start - self.START, end - self.START)]
+
+        client = MagicMock()
+        client.list_time_series.side_effect = fake_list_time_series
+
+        chunks = list_time_series(
+            client, self._request(self.START, self.START + 3600), step=60
+        )
+
+        self.assertEqual(chunks, [(0, 900), (900, 1800), (1800, 2700), (2700, 3600)])
+
+    def test_other_resource_exhausted_is_not_split(self):
+        """Quota 429s are re-raised without retrying smaller windows"""
+        client = MagicMock()
+        client.list_time_series.side_effect = ResourceExhausted("Quota exceeded")
+
+        with self.assertRaises(ResourceExhausted):
+            list_time_series(client, self._request(self.START, self.START + 3600))
+        client.list_time_series.assert_called_once()
+
+    def test_gives_up_at_one_step(self):
+        """A window that cannot be split further re-raises the size error"""
+        client = MagicMock()
+        client.list_time_series.side_effect = ResourceExhausted(self.SIZE_ERROR)
+
+        with self.assertRaises(ResourceExhausted):
+            list_time_series(
+                client, self._request(self.START, self.START + 600), step=60
+            )
 
 
 class TestMemorystore(unittest.TestCase):
@@ -633,6 +748,79 @@ class TestMemorystore(unittest.TestCase):
         entry = table["projects/proj/locations/us-east4/instances/r1"]["n0"]
         self.assertEqual(entry["Region"], "us-east4")
         self.assertEqual(entry["Zone"], "")
+
+    REDIS_LABELS = {
+        "instance_id": "projects/proj/locations/us-central1/instances/r1",
+        "node_id": "n0",
+    }
+
+    def _client_failing(self, failing_metric, results_by_metric):
+        """Mock client that raises for one metric and returns canned series otherwise"""
+
+        def fake_list_time_series(request):
+            if failing_metric in request["filter"]:
+                raise Exception("boom")
+            for metric, series in results_by_metric.items():
+                if metric in request["filter"]:
+                    return series
+            return []
+
+        client = MagicMock()
+        client.list_time_series.side_effect = fake_list_time_series
+        return client
+
+    def test_collect_for_product_reports_commands_error_and_keeps_rows(self):
+        """A failed commands query is reported and memory rows are still returned"""
+        mem_ts = MagicMock()
+        mem_ts.resource.labels = self.REDIS_LABELS
+        mem_point = MagicMock()
+        mem_point.value.int64_value = 5000000
+        mem_ts.points = [mem_point]
+        client = self._client_failing(
+            REDIS_METRICS["commands"], {REDIS_METRICS["memory_usage"]: [mem_ts]}
+        )
+        errors = []
+
+        rows = collect_for_product(
+            client, "proj", 3600, 60, REDIS_METRICS, "Redis", errors
+        )
+
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]["BytesUsedForCache"], 5000000)
+        self.assertEqual(errors, ["Error: could not query Redis command metrics: boom"])
+
+    def test_collect_for_product_reports_memory_error_and_keeps_rows(self):
+        """A failed memory query is reported and command rows are still returned"""
+        client = self._client_failing(
+            REDIS_METRICS["memory_usage"],
+            {REDIS_METRICS["commands"]: [self._make_cmd_ts(self.REDIS_LABELS)]},
+        )
+        errors = []
+
+        rows = collect_for_product(
+            client, "proj", 3600, 60, REDIS_METRICS, "Redis", errors
+        )
+
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(errors, ["Error: could not query Redis memory usage: boom"])
+
+    @patch("memorystore.monitoring_v3.MetricServiceClient")
+    @patch("memorystore.service_account.Credentials.from_service_account_file")
+    def test_main_writes_csv_and_returns_1_on_query_errors(
+        self, mock_creds, mock_client_class
+    ):
+        """main still writes the CSV but returns 1 when any query failed"""
+        mock_client_class.return_value.list_time_series.side_effect = Exception("boom")
+        with tempfile.TemporaryDirectory() as out_dir:
+            out = os.path.join(out_dir, "out.csv")
+            argv = ["memorystore.py", "--project", "proj"]
+            argv += ["--credentials", "sa.json", "--out", out]
+
+            with patch("sys.argv", argv):
+                exit_code = memorystore_main()
+
+            self.assertEqual(exit_code, 1)
+            self.assertTrue(os.path.exists(out))
 
 
 if __name__ == "__main__":

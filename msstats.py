@@ -4,11 +4,39 @@ import optparse
 import time
 import json
 import openpyxl
+from google.api_core.exceptions import ResourceExhausted
 from google.cloud import monitoring_v3
 
 
 def extractDatabaseName(instanceId):
     return instanceId.split("/")[-1]
+
+
+def _with_interval(request, start, end):
+    return {
+        **request,
+        "interval": monitoring_v3.TimeInterval(
+            {"start_time": {"seconds": start}, "end_time": {"seconds": end}}
+        ),
+    }
+
+
+def list_time_series(client, request, step=60):
+    """list_time_series that halves the interval when the response is too large."""
+    try:
+        return list(client.list_time_series(request=request))
+    except ResourceExhausted as e:
+        start = int(request["interval"].start_time.timestamp())
+        end = int(request["interval"].end_time.timestamp())
+        half = (end - start) // 2 // step * step
+        if "Maximum response size" not in str(e) or not half:
+            raise
+        # Split on a step boundary counted back from the end so aligned points line up
+        mid = end - half
+        print(f"Response too large, splitting query window at {mid}...")
+        older = list_time_series(client, _with_interval(request, start, mid), step)
+        newer = list_time_series(client, _with_interval(request, mid, end), step)
+        return older + newer
 
 
 def get_command_by_args(commands, *args):
@@ -637,16 +665,16 @@ def process_google_project(project_id, duration=604800, step=60):
     # Call the google cloud "redis.googleapis.com/commands/calls" to get commandstats
     print(f"Loading the Redis metrics of calls (commandstats)...")
     try:
-        results = list(
-            client.list_time_series(
-                request={
-                    "name": project_name,
-                    "filter": 'metric.type = "redis.googleapis.com/commands/calls"',
-                    "interval": interval,
-                    "view": monitoring_v3.ListTimeSeriesRequest.TimeSeriesView.FULL,
-                    "aggregation": aggregation,
-                }
-            )
+        results = list_time_series(
+            client,
+            {
+                "name": project_name,
+                "filter": 'metric.type = "redis.googleapis.com/commands/calls"',
+                "interval": interval,
+                "view": monitoring_v3.ListTimeSeriesRequest.TimeSeriesView.FULL,
+                "aggregation": aggregation,
+            },
+            step,
         )
 
         if not results:
@@ -654,13 +682,13 @@ def process_google_project(project_id, duration=604800, step=60):
             print(
                 "This could mean: no instances exist, missing permissions, or no activity"
             )
-            return project_id, {}
+            return {}
 
         print(f"Found Redis metrics for project {project_id}")
 
     except Exception as e:
         print(f"Error querying Redis metrics: {e}")
-        return project_id, {}
+        return {}
 
     redis_instances = set()
     for result in results:
@@ -746,6 +774,7 @@ def process_google_project(project_id, duration=604800, step=60):
         )
     except Exception as e:
         print(f"Error querying memory metrics: {e}")
+        results = []
     for result in results:
         database = extractDatabaseName(result.resource.labels["instance_id"])
         node_id = result.resource.labels["node_id"]
@@ -768,6 +797,7 @@ def process_google_project(project_id, duration=604800, step=60):
         )
     except Exception as e:
         print(f"Error querying max memory metrics: {e}")
+        results = []
     for result in results:
         database = extractDatabaseName(result.resource.labels["instance_id"])
         node_id = result.resource.labels["node_id"]
